@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\ValueObject;
 
+use Doctrine\ORM\Mapping as ORM;
 use InvalidArgumentException;
 
+#[ORM\Embeddable]
 class Money
 {
     private function __construct(
+        #[ORM\Column(type: 'integer')]
         private readonly int $amount,
+        #[ORM\Column(type: 'string', length: 3)]
         private readonly string $currency,
     ) {
     }
@@ -17,6 +21,11 @@ class Money
     public static function create(string $amount, string $currency): self
     {
         return new self(self::toCents($amount), $currency);
+    }
+
+    public static function fromCents(int $amount, string $currency): self
+    {
+        return new self($amount, $currency);
     }
 
     public function getAmount(): int

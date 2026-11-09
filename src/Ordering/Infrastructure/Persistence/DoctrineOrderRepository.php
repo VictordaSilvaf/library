@@ -10,6 +10,7 @@ use App\Ordering\Domain\ValueObject\OrderId;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Ordering\Domain\ValueObject\OrderCollection;
 use App\Ordering\Domain\ValueObject\OrderStatus;
+use App\Ordering\Infrastructure\Persistence\Doctrine\DoctrineTypes;
 use Doctrine\ORM\EntityManagerInterface;
 
 class DoctrineOrderRepository implements OrderRepository
@@ -17,6 +18,7 @@ class DoctrineOrderRepository implements OrderRepository
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
     ) {
+        DoctrineTypes::register();
     }
 
     public function save(Order $order): void
@@ -27,12 +29,18 @@ class DoctrineOrderRepository implements OrderRepository
 
     public function findById(OrderId $id): ?Order
     {
-        return $this->entityManager->getRepository(Order::class)->find($id);
+        $order = $this->entityManager->getRepository(Order::class)->find($id->getValue());
+
+        return $order instanceof Order ? $order : null;
     }
 
     public function findByCustomerId(CustomerId $customerId): ?Order
     {
-        return $this->entityManager->getRepository(Order::class)->findOneBy(['customerId' => $customerId]);
+        $order = $this->entityManager->getRepository(Order::class)->findOneBy([
+            'customerId' => $customerId->getValue(),
+        ]);
+
+        return $order instanceof Order ? $order : null;
     }
 
     public function findAll(): ?OrderCollection

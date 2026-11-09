@@ -18,10 +18,17 @@ use App\Ordering\Domain\ValueObject\{
     BookCollection
 };
 use DateTimeImmutable;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'orders')]
+#[ORM\Index(name: 'idx_orders_customer_id', columns: ['customer_id'])]
+#[ORM\Index(name: 'idx_orders_status', columns: ['status'])]
+#[ORM\HasLifecycleCallbacks]
 class Order
 {
-    private readonly BookCollection $books;
+    #[ORM\Column(type: 'book_collection')]
+    private BookCollection $books;
 
     /**
      * @var array<int, OrderCreated|OrderConfirmed|OrderCancelled>
@@ -32,14 +39,23 @@ class Order
      * @param BookCollection $books
      */
     private function __construct(
+        #[ORM\Id]
+        #[ORM\Column(name: 'id', type: 'order_id', length: 36)]
         private readonly OrderId $id,
+        #[ORM\Column(name: 'customer_id', type: 'order_customer_id', length: 36)]
         private readonly CustomerId $customerId,
         BookCollection $books,
+        #[ORM\Column(type: 'string', enumType: OrderStatus::class, length: 32)]
         private OrderStatus $status,
+        #[ORM\Embedded(class: Money::class, columnPrefix: 'total_')]
         private Money $total,
+        #[ORM\Column(type: 'datetime_immutable')]
         private readonly DateTimeImmutable $createdAt,
+        #[ORM\Column(type: 'datetime_immutable')]
         private DateTimeImmutable $updatedAt,
+        #[ORM\Column(type: 'datetime_immutable', nullable: true)]
         private ?DateTimeImmutable $confirmedAt = null,
+        #[ORM\Column(type: 'datetime_immutable', nullable: true)]
         private ?DateTimeImmutable $cancelledAt = null,
     ) {
         $this->books = $books->copy();
@@ -78,6 +94,12 @@ class Order
         ));
 
         return $order;
+    }
+
+    #[ORM\PostLoad]
+    public function initializeTransientState(): void
+    {
+        $this->domainEvents = [];
     }
 
     public function getId(): OrderId
@@ -170,9 +192,11 @@ class Order
     {
         $this->validateAddBook();
 
+        $items = $this->books->getBooks();
+        $items[] = $book;
+        $this->books = new BookCollection($items);
         $this->total = $this->total->add($book->getPrice());
         $this->updatedAt = new DateTimeImmutable();
-        $this->books->addBook($book);
     }
 
     private function validateAddBook(): void

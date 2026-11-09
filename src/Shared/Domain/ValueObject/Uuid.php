@@ -23,6 +23,11 @@ abstract class Uuid
         return $this->value;
     }
 
+    public function __toString(): string
+    {
+        return $this->value;
+    }
+
     public static function validate(string $value): bool
     {
         if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $value) !== 1) {
