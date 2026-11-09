@@ -46,14 +46,12 @@ class OrderTest extends TestCase
         $this->assertSame('USD', $order->getTotal()->getCurrency());
     }
 
-    public function testCreateWithEmptyCollectionHasZeroTotal(): void
+    public function testCreateRejectsEmptyCollection(): void
     {
-        $order = $this->emptyOrder();
+        $this->expectException(DomainException::class);
+        $this->expectExceptionMessage('Books are required');
 
-        $this->assertTrue($order->getBooks()->isEmpty());
-        $this->assertSame(0, $order->getTotal()->getAmount());
-        $this->assertSame('USD', $order->getTotal()->getCurrency());
-        $this->assertTrue($order->getStatus()->isPending());
+        Order::create(CustomerId::random(), new BookCollection([]));
     }
 
     public function testConfirmMarksPendingOrderAsConfirmed(): void
@@ -67,16 +65,6 @@ class OrderTest extends TestCase
         $this->assertNotNull($order->getConfirmedAt());
         $this->assertNull($order->getCancelledAt());
         $this->assertGreaterThanOrEqual($updatedAt, $order->getUpdatedAt());
-    }
-
-    public function testConfirmRejectsEmptyOrder(): void
-    {
-        $order = $this->emptyOrder();
-
-        $this->expectException(DomainException::class);
-        $this->expectExceptionMessage('Order has no books');
-
-        $order->confirm();
     }
 
     public function testConfirmRejectsConfirmedOrder(): void
@@ -138,15 +126,15 @@ class OrderTest extends TestCase
 
     public function testAddBookAppendsTheBookToAPendingOrder(): void
     {
-        $order = $this->emptyOrder();
+        $order = $this->orderWithBooks();
         $book = $this->book('Refactoring', '45');
 
         $order->addBook($book);
 
         $books = $order->getBooks()->getBooks();
-        $this->assertCount(1, $books);
-        $this->assertSame($book, $books[0]);
-        $this->assertSame('Refactoring', $books[0]->title);
+        $this->assertCount(2, $books);
+        $this->assertSame($book, $books[1]);
+        $this->assertSame('Refactoring', $books[1]->title);
     }
 
     public function testGetOrderReturnsAnotherInstanceWithTheSameState(): void
@@ -167,11 +155,6 @@ class OrderTest extends TestCase
         $this->assertEquals($order->getConfirmedAt(), $copy->getConfirmedAt());
         $this->assertNull($copy->getCancelledAt());
         $this->assertCount(1, $copy->getBooks()->getBooks());
-    }
-
-    private function emptyOrder(): Order
-    {
-        return Order::create(CustomerId::random(), new BookCollection([]));
     }
 
     private function orderWithBooks(): Order

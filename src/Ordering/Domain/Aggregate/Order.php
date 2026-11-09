@@ -17,8 +17,6 @@ use DomainException;
 
 class Order
 {
-    const DATE_FORMAT = 'Y-m-d H:i:s';
-
     /**
      * @param BookCollection $books
      */
@@ -32,7 +30,8 @@ class Order
         private DateTimeImmutable $updatedAt,
         private ?DateTimeImmutable $confirmedAt = null,
         private ?DateTimeImmutable $cancelledAt = null,
-    ) {}
+    ) {
+    }
 
     public static function create(CustomerId $customerId, BookCollection $books): self
     {
@@ -42,7 +41,7 @@ class Order
             $total = $total->add($book->getPrice());
         }
 
-        return new self(
+        $order = new self(
             OrderId::random(),
             $customerId,
             $books,
@@ -51,6 +50,17 @@ class Order
             new DateTimeImmutable(),
             new DateTimeImmutable(),
         );
+
+        $order->validateCreation();
+
+        return $order;
+    }
+
+    private function validateCreation()
+    {
+        if ($this->books->isEmpty()) {
+            throw new DomainException('Books are required');
+        }
     }
 
     public function getOrder(): Order
@@ -77,7 +87,7 @@ class Order
     {
         return $this->customerId;
     }
-    
+
     public function getBooks(): BookCollection
     {
         return $this->books;
@@ -133,7 +143,23 @@ class Order
 
     public function addBook(Book $book)
     {
+        $this->validateAddBook();
         $this->books->addBook($book);
+    }
+
+    private function validateAddBook()
+    {
+        if ($this->status !== OrderStatus::PENDING) {
+            throw new DomainException('Order is not pending');
+        }
+
+        if ($this->confirmedAt !== null) {
+            throw new DomainException('Order is already confirmed');
+        }
+
+        if ($this->cancelledAt !== null) {
+            throw new DomainException('Order is cancelled');
+        }
     }
 
     private function validateConfirm()
@@ -145,7 +171,7 @@ class Order
         if ($this->confirmedAt !== null) {
             throw new DomainException('Order is already confirmed');
         }
-        
+
         if ($this->cancelledAt !== null) {
             throw new DomainException('Order is cancelled');
         }
