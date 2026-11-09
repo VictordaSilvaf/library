@@ -7,16 +7,16 @@ namespace App\Ordering\Domain\ValueObject;
 class Money
 {
     public function __construct(
-        private readonly float $amount,
+        private readonly string $amount,
         private readonly string $currency,
     ) {}
 
-    public static function create(float $amount, string $currency): self
+    public static function create(string $amount, string $currency): self
     {
         return new self($amount, $currency);
     }
 
-    public function getAmount(): float
+    public function getAmount(): string
     {
         return $this->amount;
     }
@@ -28,11 +28,11 @@ class Money
 
     public function add(Money $other)
     {
-        return new self($this->amount + $other->amount, $this->currency);
+        return new self((string)($this->amount + $other->amount), $this->currency);
     }
 
     public function subtract(Money $other)
     {
-        return new self($this->amount - $other->amount, $this->currency);
+        return new self((string)($this->amount - $other->amount), $this->currency);
     }
 }
