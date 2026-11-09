@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\Aggregate;
 
+use App\Ordering\Domain\Event\OrderCancelled;
+use App\Ordering\Domain\Event\OrderConfirmed;
+use App\Ordering\Domain\Event\OrderCreated;
+use App\Ordering\Domain\Exception\EmptyOrderException;
+use App\Ordering\Domain\Exception\InvalidOrderStateException;
 use App\Ordering\Domain\ValueObject\{
     Book,
     OrderId,
@@ -13,11 +18,15 @@ use App\Ordering\Domain\ValueObject\{
     BookCollection
 };
 use DateTimeImmutable;
-use DomainException;
 
 class Order
 {
     private readonly BookCollection $books;
+
+    /**
+     * @var array<int, OrderCreated|OrderConfirmed|OrderCancelled>
+     */
+    private array $domainEvents = [];
 
     /**
      * @param BookCollection $books
@@ -38,9 +47,16 @@ class Order
 
     public static function create(CustomerId $customerId, BookCollection $books): self
     {
-        $total = Money::create('0', 'USD');
+        /** @var Book[] $items */
+        $items = array_values($books->getBooks());
 
-        foreach ($books->getBooks() as $book) {
+        if ($items === []) {
+            throw new EmptyOrderException('Books are required');
+        }
+
+        $total = $items[0]->getPrice();
+
+        foreach (array_slice($items, 1) as $book) {
             $total = $total->add($book->getPrice());
         }
 
@@ -54,31 +70,14 @@ class Order
             new DateTimeImmutable(),
         );
 
-        $order->validateCreation();
+        $order->record(new OrderCreated(
+            $order->getId(),
+            $order->getCustomerId(),
+            $order->getBooks(),
+            $order->getTotal(),
+        ));
 
         return $order;
-    }
-
-    private function validateCreation()
-    {
-        if ($this->books->isEmpty()) {
-            throw new DomainException('Books are required');
-        }
-    }
-
-    public function getOrder(): Order
-    {
-        return new Order(
-            $this->id,
-            $this->customerId,
-            $this->books,
-            $this->status,
-            $this->total,
-            $this->createdAt,
-            $this->updatedAt,
-            $this->confirmedAt,
-            $this->cancelledAt,
-        );
     }
 
     public function getId(): OrderId
@@ -126,72 +125,83 @@ class Order
         return $this->cancelledAt;
     }
 
-    public function confirm()
+    /**
+     * @return array<int, OrderCreated|OrderConfirmed|OrderCancelled>
+     */
+    public function releaseEvents(): array
+    {
+        $events = $this->domainEvents;
+        $this->domainEvents = [];
+
+        return $events;
+    }
+
+    public function confirm(): void
     {
         $this->validateConfirm();
 
         $this->status = OrderStatus::CONFIRMED;
         $this->confirmedAt = new DateTimeImmutable();
         $this->updatedAt = new DateTimeImmutable();
+        $this->record(new OrderConfirmed(
+            $this->id,
+            $this->customerId,
+            $this->getBooks(),
+            $this->total,
+        ));
     }
 
-    public function cancel()
+    public function cancel(): void
     {
         $this->validateCancel();
 
         $this->status = OrderStatus::CANCELLED;
         $this->cancelledAt = new DateTimeImmutable();
         $this->updatedAt = new DateTimeImmutable();
+        $this->record(new OrderCancelled(
+            $this->id,
+            $this->customerId,
+            $this->getBooks(),
+            $this->total,
+        ));
     }
 
-    public function addBook(Book $book)
+    public function addBook(Book $book): void
     {
         $this->validateAddBook();
 
         $this->total = $this->total->add($book->getPrice());
         $this->updatedAt = new DateTimeImmutable();
-        
         $this->books->addBook($book);
     }
 
-    private function validateAddBook()
+    private function validateAddBook(): void
     {
-        if ($this->status !== OrderStatus::PENDING) {
-            throw new DomainException('Order is not pending');
-        }
-
-        if ($this->confirmedAt !== null) {
-            throw new DomainException('Order is already confirmed');
-        }
-
-        if ($this->cancelledAt !== null) {
-            throw new DomainException('Order is cancelled');
+        if (!$this->status->isPending()) {
+            throw new InvalidOrderStateException('Order is not pending');
         }
     }
 
-    private function validateConfirm()
+    private function validateConfirm(): void
     {
         if (!$this->status->isPending()) {
-            throw new DomainException('Order is not pending');
-        }
-
-        if ($this->confirmedAt !== null) {
-            throw new DomainException('Order is already confirmed');
-        }
-
-        if ($this->cancelledAt !== null) {
-            throw new DomainException('Order is cancelled');
+            throw new InvalidOrderStateException('Order is not pending');
         }
 
         if ($this->books->isEmpty()) {
-            throw new DomainException('Order has no books');
+            throw new EmptyOrderException('Order has no books');
         }
     }
 
-    private function validateCancel()
+    private function validateCancel(): void
     {
-        if ($this->status !== OrderStatus::PENDING) {
-            throw new DomainException('Order is not pending');
+        if (!$this->status->isPending()) {
+            throw new InvalidOrderStateException('Order is not pending');
         }
+    }
+
+    private function record(OrderCreated|OrderConfirmed|OrderCancelled $event): void
+    {
+        $this->domainEvents[] = $event;
     }
 }
