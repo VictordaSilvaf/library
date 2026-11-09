@@ -31,11 +31,19 @@ class Money
 
     public function add(Money $other): self
     {
+        if ($this->currency !== $other->currency) {
+            throw new InvalidArgumentException('Currencies must be the same');
+        }
+
         return new self($this->amount + $other->amount, $this->currency);
     }
 
     public function subtract(Money $other): self
     {
+        if ($this->currency !== $other->currency) {
+            throw new InvalidArgumentException('Currencies must be the same');
+        }
+
         return new self($this->amount - $other->amount, $this->currency);
     }
 

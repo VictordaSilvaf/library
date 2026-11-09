@@ -147,6 +147,10 @@ class Order
     public function addBook(Book $book)
     {
         $this->validateAddBook();
+
+        $this->total = $this->total->add($book->getPrice());
+        $this->updatedAt = new DateTimeImmutable();
+        
         $this->books->addBook($book);
     }
 
