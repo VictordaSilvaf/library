@@ -124,6 +124,27 @@ class OrderTest extends TestCase
         $order->cancel();
     }
 
+    public function testGetBooksReturnsACopy(): void
+    {
+        $order = $this->orderWithBooks();
+
+        $order->getBooks()->addBook($this->book('Refactoring', '45'));
+
+        $this->assertCount(1, $order->getBooks()->getBooks());
+    }
+
+    public function testCreateKeepsItsOwnBookCollection(): void
+    {
+        $books = new BookCollection([
+            $this->book('Domain-Driven Design', '40'),
+        ]);
+        $order = Order::create(CustomerId::random(), $books);
+
+        $books->addBook($this->book('Refactoring', '45'));
+
+        $this->assertCount(1, $order->getBooks()->getBooks());
+    }
+
     public function testAddBookAppendsTheBookToAPendingOrder(): void
     {
         $order = $this->orderWithBooks();

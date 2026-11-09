@@ -9,7 +9,8 @@ class BookCollection
      */
     public function __construct(
         private array $books,
-    ) {}
+    ) {
+    }
 
     public function getBooks(): array
     {
@@ -29,5 +30,10 @@ class BookCollection
     public function isEmpty(): bool
     {
         return count($this->books) === 0;
+    }
+
+    public function copy(): self
+    {
+        return new self($this->books);
     }
 }

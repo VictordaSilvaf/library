@@ -17,13 +17,15 @@ use DomainException;
 
 class Order
 {
+    private readonly BookCollection $books;
+
     /**
      * @param BookCollection $books
      */
     private function __construct(
         private readonly OrderId $id,
         private readonly CustomerId $customerId,
-        private readonly BookCollection $books,
+        BookCollection $books,
         private OrderStatus $status,
         private Money $total,
         private readonly DateTimeImmutable $createdAt,
@@ -31,6 +33,7 @@ class Order
         private ?DateTimeImmutable $confirmedAt = null,
         private ?DateTimeImmutable $cancelledAt = null,
     ) {
+        $this->books = $books->copy();
     }
 
     public static function create(CustomerId $customerId, BookCollection $books): self
@@ -90,7 +93,7 @@ class Order
 
     public function getBooks(): BookCollection
     {
-        return $this->books;
+        return $this->books->copy();
     }
 
     public function getStatus(): OrderStatus
