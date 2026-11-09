@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\Aggregate;
 
-use App\Ordering\Domain\Entity\OrderItem;
 use App\Ordering\Domain\ValueObject\{
     Book,
     OrderId,
