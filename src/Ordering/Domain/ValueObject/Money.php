@@ -4,19 +4,22 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\ValueObject;
 
+use InvalidArgumentException;
+
 class Money
 {
-    public function __construct(
-        private readonly string $amount,
+    private function __construct(
+        private readonly int $amount,
         private readonly string $currency,
-    ) {}
+    ) {
+    }
 
     public static function create(string $amount, string $currency): self
     {
-        return new self($amount, $currency);
+        return new self(self::toCents($amount), $currency);
     }
 
-    public function getAmount(): string
+    public function getAmount(): int
     {
         return $this->amount;
     }
@@ -26,13 +29,26 @@ class Money
         return $this->currency;
     }
 
-    public function add(Money $other)
+    public function add(Money $other): self
     {
-        return new self((string)($this->amount + $other->amount), $this->currency);
+        return new self($this->amount + $other->amount, $this->currency);
     }
 
-    public function subtract(Money $other)
+    public function subtract(Money $other): self
     {
-        return new self((string)($this->amount - $other->amount), $this->currency);
+        return new self($this->amount - $other->amount, $this->currency);
+    }
+
+    private static function toCents(string $amount): int
+    {
+        if (preg_match('/^(-)?(\d+)(?:\.(\d{1,2}))?$/', $amount, $matches) !== 1) {
+            throw new InvalidArgumentException('Invalid money amount');
+        }
+
+        $units = (int) $matches[2];
+        $fraction = str_pad($matches[3] ?? '', 2, '0');
+        $cents = ($units * 100) + (int) $fraction;
+
+        return ($matches[1] ?? '') === '-' ? -$cents : $cents;
     }
 }

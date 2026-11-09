@@ -27,7 +27,7 @@ class OrderTest extends TestCase
         $this->assertSame($customerId->getValue(), $order->getCustomerId()->getValue());
         $this->assertNotEmpty($order->getId()->getValue());
         $this->assertTrue($order->getStatus()->isPending());
-        $this->assertSame('90', $order->getTotal()->getAmount());
+        $this->assertSame(9000, $order->getTotal()->getAmount());
         $this->assertSame('USD', $order->getTotal()->getCurrency());
         $this->assertCount(2, $order->getBooks()->getBooks());
         $this->assertNull($order->getConfirmedAt());
@@ -42,7 +42,7 @@ class OrderTest extends TestCase
             $this->book('Clean Architecture', '30'),
         ]));
 
-        $this->assertSame('30', $order->getTotal()->getAmount());
+        $this->assertSame(3000, $order->getTotal()->getAmount());
         $this->assertSame('USD', $order->getTotal()->getCurrency());
     }
 
@@ -51,7 +51,7 @@ class OrderTest extends TestCase
         $order = $this->emptyOrder();
 
         $this->assertTrue($order->getBooks()->isEmpty());
-        $this->assertSame('0', $order->getTotal()->getAmount());
+        $this->assertSame(0, $order->getTotal()->getAmount());
         $this->assertSame('USD', $order->getTotal()->getCurrency());
         $this->assertTrue($order->getStatus()->isPending());
     }
@@ -183,6 +183,6 @@ class OrderTest extends TestCase
 
     private function book(string $title, string $amount): Book
     {
-        return new PricedBook($title, 'Eric Evans', Money::create($amount, 'USD'));
+        return new Book($title, 'Eric Evans', Money::create($amount, 'USD'));
     }
 }
