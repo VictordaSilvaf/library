@@ -4,30 +4,30 @@ declare(strict_types=1);
 
 namespace App\Ordering\Infrastructure\Persistence\Doctrine;
 
-use App\Ordering\Domain\ValueObject\Book;
-use App\Ordering\Domain\ValueObject\BookCollection;
 use App\Ordering\Domain\ValueObject\Money;
+use App\Ordering\Domain\ValueObject\Product;
+use App\Ordering\Domain\ValueObject\ProductCollection;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
 use Doctrine\DBAL\Types\Type;
 use InvalidArgumentException;
 
-final class BookCollectionType extends Type
+final class ProductCollectionType extends Type
 {
-    public const NAME = 'book_collection';
+    public const NAME = 'product_collection';
 
     public function getSQLDeclaration(array $column, AbstractPlatform $platform): string
     {
         return $platform->getJsonTypeDeclarationSQL($column);
     }
 
-    public function convertToPHPValue($value, AbstractPlatform $platform): BookCollection
+    public function convertToPHPValue($value, AbstractPlatform $platform): ProductCollection
     {
-        if ($value instanceof BookCollection) {
+        if ($value instanceof ProductCollection) {
             return $value;
         }
 
         if ($value === null || $value === '') {
-            return new BookCollection([]);
+            return new ProductCollection([]);
         }
 
         $decoded = is_array($value)
@@ -35,21 +35,21 @@ final class BookCollectionType extends Type
             : json_decode((string) $value, true, 512, JSON_THROW_ON_ERROR);
 
         if (!is_array($decoded)) {
-            throw new InvalidArgumentException('Invalid book collection');
+            throw new InvalidArgumentException('Invalid product collection');
         }
 
         /** @var array<int, array{title: string, author: string, amount: int, currency: string}> $decoded */
-        $books = [];
+        $products = [];
 
         foreach ($decoded as $row) {
-            $books[] = new Book(
+            $products[] = new Product(
                 $row['title'],
                 $row['author'],
                 Money::fromCents($row['amount'], $row['currency'])
             );
         }
 
-        return new BookCollection($books);
+        return new ProductCollection($products);
     }
 
     public function convertToDatabaseValue($value, AbstractPlatform $platform): ?string
@@ -58,18 +58,18 @@ final class BookCollectionType extends Type
             return null;
         }
 
-        if (!$value instanceof BookCollection) {
-            throw new InvalidArgumentException('Expected a book collection');
+        if (!$value instanceof ProductCollection) {
+            throw new InvalidArgumentException('Expected a product collection');
         }
 
         $rows = [];
 
-        foreach ($value->getBooks() as $book) {
+        foreach ($value->getProducts() as $product) {
             $rows[] = [
-                'title' => $book->getTitle(),
-                'author' => $book->getAuthor(),
-                'amount' => $book->getPrice()->getAmount(),
-                'currency' => $book->getPrice()->getCurrency(),
+                'title' => $product->getTitle(),
+                'author' => $product->getAuthor(),
+                'amount' => $product->getPrice()->getAmount(),
+                'currency' => $product->getPrice()->getCurrency(),
             ];
         }
 

@@ -6,6 +6,7 @@ namespace App\Ordering\Application\Handler;
 
 use App\Ordering\Application\Command\ConfirmOrder;
 use App\Ordering\Application\DTO\OrderOutput;
+use App\Ordering\Application\Event\EventDispatcher;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\Repository\OrderRepository;
 
@@ -13,6 +14,7 @@ class ConfirmOrderHandler
 {
     public function __construct(
         private readonly OrderRepository $orders,
+        private readonly EventDispatcher $events,
     ) {
     }
 
@@ -26,7 +28,10 @@ class ConfirmOrderHandler
 
         $order->confirm();
         $this->orders->save($order);
-        $order->releaseEvents();
+
+        foreach ($order->releaseEvents() as $event) {
+            $this->events->dispatch($event);
+        }
 
         return OrderOutput::fromOrder($order);
     }

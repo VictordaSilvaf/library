@@ -10,12 +10,12 @@ use App\Ordering\Domain\Event\OrderCreated;
 use App\Ordering\Domain\Exception\EmptyOrderException;
 use App\Ordering\Domain\Exception\InvalidOrderStateException;
 use App\Ordering\Domain\ValueObject\{
-    Book,
+    Product,
     OrderId,
     CustomerId,
     OrderStatus,
     Money,
-    BookCollection
+    ProductCollection
 };
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
@@ -27,8 +27,8 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 class Order
 {
-    #[ORM\Column(type: 'book_collection')]
-    private BookCollection $books;
+    #[ORM\Column(name: 'products', type: 'product_collection')]
+    private ProductCollection $products;
 
     /**
      * @var array<int, OrderCreated|OrderConfirmed|OrderCancelled>
@@ -36,7 +36,7 @@ class Order
     private array $domainEvents = [];
 
     /**
-     * @param BookCollection $books
+     * @param ProductCollection $products
      */
     private function __construct(
         #[ORM\Id]
@@ -44,7 +44,7 @@ class Order
         private readonly OrderId $id,
         #[ORM\Column(name: 'customer_id', type: 'order_customer_id', length: 36)]
         private readonly CustomerId $customerId,
-        BookCollection $books,
+        ProductCollection $products,
         #[ORM\Column(type: 'string', enumType: OrderStatus::class, length: 32)]
         private OrderStatus $status,
         #[ORM\Embedded(class: Money::class, columnPrefix: 'total_')]
@@ -58,28 +58,28 @@ class Order
         #[ORM\Column(name: 'cancelled_at', type: 'datetime_immutable', nullable: true)]
         private ?DateTimeImmutable $cancelledAt = null,
     ) {
-        $this->books = $books->copy();
+        $this->products = $products->copy();
     }
 
-    public static function create(CustomerId $customerId, BookCollection $books): self
+    public static function create(CustomerId $customerId, ProductCollection $products): self
     {
-        /** @var Book[] $items */
-        $items = array_values($books->getBooks());
+        /** @var Product[] $items */
+        $items = array_values($products->getProducts());
 
         if ($items === []) {
-            throw new EmptyOrderException('Books are required');
+            throw new EmptyOrderException('Products are required');
         }
 
         $total = $items[0]->getPrice();
 
-        foreach (array_slice($items, 1) as $book) {
-            $total = $total->add($book->getPrice());
+        foreach (array_slice($items, 1) as $product) {
+            $total = $total->add($product->getPrice());
         }
 
         $order = new self(
             OrderId::random(),
             $customerId,
-            $books,
+            $products,
             OrderStatus::PENDING,
             $total,
             new DateTimeImmutable(),
@@ -89,7 +89,7 @@ class Order
         $order->record(new OrderCreated(
             $order->getId(),
             $order->getCustomerId(),
-            $order->getBooks(),
+            $order->getProducts(),
             $order->getTotal(),
         ));
 
@@ -112,9 +112,9 @@ class Order
         return $this->customerId;
     }
 
-    public function getBooks(): BookCollection
+    public function getProducts(): ProductCollection
     {
-        return $this->books->copy();
+        return $this->products->copy();
     }
 
     public function getStatus(): OrderStatus
@@ -168,7 +168,7 @@ class Order
         $this->record(new OrderConfirmed(
             $this->id,
             $this->customerId,
-            $this->getBooks(),
+            $this->getProducts(),
             $this->total,
         ));
     }
@@ -183,23 +183,23 @@ class Order
         $this->record(new OrderCancelled(
             $this->id,
             $this->customerId,
-            $this->getBooks(),
+            $this->getProducts(),
             $this->total,
         ));
     }
 
-    public function addBook(Book $book): void
+    public function addProduct(Product $product): void
     {
-        $this->validateAddBook();
+        $this->validateAddProduct();
 
-        $items = $this->books->getBooks();
-        $items[] = $book;
-        $this->books = new BookCollection($items);
-        $this->total = $this->total->add($book->getPrice());
+        $items = $this->products->getProducts();
+        $items[] = $product;
+        $this->products = new ProductCollection($items);
+        $this->total = $this->total->add($product->getPrice());
         $this->updatedAt = new DateTimeImmutable();
     }
 
-    private function validateAddBook(): void
+    private function validateAddProduct(): void
     {
         if (!$this->status->isPending()) {
             throw new InvalidOrderStateException('Order is not pending');
@@ -212,8 +212,8 @@ class Order
             throw new InvalidOrderStateException('Order is not pending');
         }
 
-        if ($this->books->isEmpty()) {
-            throw new EmptyOrderException('Order has no books');
+        if ($this->products->isEmpty()) {
+            throw new EmptyOrderException('Order has no products');
         }
     }
 

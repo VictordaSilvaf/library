@@ -2,7 +2,7 @@
 
 namespace App\Ordering\Domain\ValueObject;
 
-class Book
+class Product
 {
     public function __construct(
         public readonly string $title,

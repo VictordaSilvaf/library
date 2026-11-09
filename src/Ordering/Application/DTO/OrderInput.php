@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Ordering\Application\DTO;
 
 use App\Ordering\Application\Command\CreateOrder;
-use App\Ordering\Domain\ValueObject\Book;
-use App\Ordering\Domain\ValueObject\BookCollection;
+use App\Ordering\Domain\ValueObject\Product;
+use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Ordering\Domain\ValueObject\Money;
 use InvalidArgumentException;
@@ -14,11 +14,11 @@ use InvalidArgumentException;
 class OrderInput
 {
     /**
-     * @param array<int, mixed> $books
+     * @param array<int, mixed> $products
      */
     private function __construct(
         private readonly string $customerId,
-        private readonly array $books,
+        private readonly array $products,
     ) {
     }
 
@@ -31,41 +31,41 @@ class OrderInput
             throw new InvalidArgumentException('Customer id is required');
         }
 
-        if (!isset($data['books']) || !is_array($data['books'])) {
-            throw new InvalidArgumentException('Books are required');
+        if (!isset($data['products']) || !is_array($data['products'])) {
+            throw new InvalidArgumentException('Products are required');
         }
 
-        return new self($data['customerId'], $data['books']);
+        return new self($data['customerId'], $data['products']);
     }
 
     public function toCommand(): CreateOrder
     {
-        $books = [];
+        $products = [];
 
-        foreach ($this->books as $book) {
-            if (!is_array($book)) {
-                throw new InvalidArgumentException('Invalid book');
+        foreach ($this->products as $product) {
+            if (!is_array($product)) {
+                throw new InvalidArgumentException('Invalid product');
             }
 
-            $books[] = new Book(
-                self::stringField($book, 'title'),
-                self::stringField($book, 'author'),
-                Money::create(self::stringField($book, 'price'), self::stringField($book, 'currency'))
+            $products[] = new Product(
+                self::stringField($product, 'title'),
+                self::stringField($product, 'author'),
+                Money::create(self::stringField($product, 'price'), self::stringField($product, 'currency'))
             );
         }
 
-        return new CreateOrder(new CustomerId($this->customerId), new BookCollection($books));
+        return new CreateOrder(new CustomerId($this->customerId), new ProductCollection($products));
     }
 
     /**
-     * @param array<mixed> $book
+     * @param array<mixed> $product
      */
-    private static function stringField(array $book, string $field): string
+    private static function stringField(array $product, string $field): string
     {
-        if (!isset($book[$field]) || !is_string($book[$field]) || $book[$field] === '') {
-            throw new InvalidArgumentException(sprintf('Book %s is required', $field));
+        if (!isset($product[$field]) || !is_string($product[$field]) || $product[$field] === '') {
+            throw new InvalidArgumentException(sprintf('Product %s is required', $field));
         }
 
-        return $book[$field];
+        return $product[$field];
     }
 }

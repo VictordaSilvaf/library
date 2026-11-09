@@ -12,7 +12,7 @@ final class DoctrineTypes
     {
         self::add(OrderIdType::NAME, OrderIdType::class);
         self::add(CustomerIdType::NAME, CustomerIdType::class);
-        self::add(BookCollectionType::NAME, BookCollectionType::class);
+        self::add(ProductCollectionType::NAME, ProductCollectionType::class);
     }
 
     /**

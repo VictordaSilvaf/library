@@ -4,18 +4,18 @@ declare(strict_types=1);
 
 namespace App\Ordering\Application\Command;
 
-use App\Ordering\Domain\ValueObject\BookCollection;
+use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 
 class CreateOrder
 {
-    private readonly BookCollection $books;
+    private readonly ProductCollection $products;
 
     public function __construct(
         private readonly CustomerId $customerId,
-        BookCollection $books,
+        ProductCollection $products,
     ) {
-        $this->books = $books->copy();
+        $this->products = $products->copy();
     }
 
     public function getCustomerId(): CustomerId
@@ -23,8 +23,8 @@ class CreateOrder
         return $this->customerId;
     }
 
-    public function getBooks(): BookCollection
+    public function getProducts(): ProductCollection
     {
-        return $this->books->copy();
+        return $this->products->copy();
     }
 }

@@ -7,7 +7,7 @@ namespace App\Ordering\Domain\Event;
 use App\Ordering\Domain\ValueObject\{
     OrderId,
     CustomerId,
-    BookCollection,
+    ProductCollection,
     Money,
 };
 
@@ -16,7 +16,8 @@ class OrderCreated
     public function __construct(
         public readonly OrderId $orderId,
         public readonly CustomerId $customerId,
-        public readonly BookCollection $books,
+        public readonly ProductCollection $products,
         public readonly Money $total,
-    ) {}
+    ) {
+    }
 }

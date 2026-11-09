@@ -10,8 +10,8 @@ use App\Ordering\Domain\Event\OrderConfirmed;
 use App\Ordering\Domain\Event\OrderCreated;
 use App\Ordering\Domain\Exception\EmptyOrderException;
 use App\Ordering\Domain\Exception\InvalidOrderStateException;
-use App\Ordering\Domain\ValueObject\Book;
-use App\Ordering\Domain\ValueObject\BookCollection;
+use App\Ordering\Domain\ValueObject\Product;
+use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Ordering\Domain\ValueObject\Money;
 use InvalidArgumentException;
@@ -19,43 +19,43 @@ use Tests\TestCase;
 
 class OrderTest extends TestCase
 {
-    public function testCreateStartsPendingWithCustomerBooksAndTotal(): void
+    public function testCreateStartsPendingWithCustomerProductsAndTotal(): void
     {
         $customerId = CustomerId::random();
-        $books = new BookCollection([
-            $this->book('Domain-Driven Design', '40'),
-            $this->book('Implementing Domain-Driven Design', '50'),
+        $products = new ProductCollection([
+            $this->product('Domain-Driven Design', '40'),
+            $this->product('Implementing Domain-Driven Design', '50'),
         ]);
 
-        $order = Order::create($customerId, $books);
+        $order = Order::create($customerId, $products);
 
         $this->assertSame($customerId->getValue(), $order->getCustomerId()->getValue());
         $this->assertNotEmpty($order->getId()->getValue());
         $this->assertTrue($order->getStatus()->isPending());
         $this->assertSame(9000, $order->getTotal()->getAmount());
         $this->assertSame('USD', $order->getTotal()->getCurrency());
-        $this->assertCount(2, $order->getBooks()->getBooks());
+        $this->assertCount(2, $order->getProducts()->getProducts());
         $this->assertNull($order->getConfirmedAt());
         $this->assertNull($order->getCancelledAt());
         $this->assertInstanceOf(\DateTimeImmutable::class, $order->getCreatedAt());
         $this->assertInstanceOf(\DateTimeImmutable::class, $order->getUpdatedAt());
     }
 
-    public function testCreateWithOneBookUsesItsPriceAsTotal(): void
+    public function testCreateWithOneProductUsesItsPriceAsTotal(): void
     {
-        $order = Order::create(CustomerId::random(), new BookCollection([
-            $this->book('Clean Architecture', '30'),
+        $order = Order::create(CustomerId::random(), new ProductCollection([
+            $this->product('Clean Architecture', '30'),
         ]));
 
         $this->assertSame(3000, $order->getTotal()->getAmount());
         $this->assertSame('USD', $order->getTotal()->getCurrency());
     }
 
-    public function testCreateUsesTheCurrencyOfTheBooks(): void
+    public function testCreateUsesTheCurrencyOfTheProducts(): void
     {
-        $order = Order::create(CustomerId::random(), new BookCollection([
-            new Book('Dom Casmurro', 'Machado de Assis', Money::create('30', 'BRL')),
-            new Book('Memórias Póstumas', 'Machado de Assis', Money::create('20', 'BRL')),
+        $order = Order::create(CustomerId::random(), new ProductCollection([
+            new Product('Dom Casmurro', 'Machado de Assis', Money::create('30', 'BRL')),
+            new Product('Memórias Póstumas', 'Machado de Assis', Money::create('20', 'BRL')),
         ]));
 
         $this->assertSame(5000, $order->getTotal()->getAmount());
@@ -67,23 +67,23 @@ class OrderTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Currencies must be the same');
 
-        Order::create(CustomerId::random(), new BookCollection([
-            $this->book('Domain-Driven Design', '40'),
-            new Book('Dom Casmurro', 'Machado de Assis', Money::create('30', 'BRL')),
+        Order::create(CustomerId::random(), new ProductCollection([
+            $this->product('Domain-Driven Design', '40'),
+            new Product('Dom Casmurro', 'Machado de Assis', Money::create('30', 'BRL')),
         ]));
     }
 
     public function testCreateRejectsEmptyCollection(): void
     {
         $this->expectException(EmptyOrderException::class);
-        $this->expectExceptionMessage('Books are required');
+        $this->expectExceptionMessage('Products are required');
 
-        Order::create(CustomerId::random(), new BookCollection([]));
+        Order::create(CustomerId::random(), new ProductCollection([]));
     }
 
     public function testConfirmMarksPendingOrderAsConfirmed(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $updatedAt = $order->getUpdatedAt();
 
         $order->confirm();
@@ -96,7 +96,7 @@ class OrderTest extends TestCase
 
     public function testConfirmRejectsConfirmedOrder(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->confirm();
 
         $this->expectException(InvalidOrderStateException::class);
@@ -107,7 +107,7 @@ class OrderTest extends TestCase
 
     public function testConfirmRejectsCancelledOrder(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->cancel();
 
         $this->expectException(InvalidOrderStateException::class);
@@ -118,7 +118,7 @@ class OrderTest extends TestCase
 
     public function testCancelMarksPendingOrderAsCancelled(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $updatedAt = $order->getUpdatedAt();
 
         $order->cancel();
@@ -131,7 +131,7 @@ class OrderTest extends TestCase
 
     public function testCancelRejectsConfirmedOrder(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->confirm();
 
         $this->expectException(InvalidOrderStateException::class);
@@ -142,7 +142,7 @@ class OrderTest extends TestCase
 
     public function testCancelRejectsCancelledOrder(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->cancel();
 
         $this->expectException(InvalidOrderStateException::class);
@@ -151,72 +151,72 @@ class OrderTest extends TestCase
         $order->cancel();
     }
 
-    public function testGetBooksReturnsACopy(): void
+    public function testGetProductsReturnsACopy(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
 
-        $order->getBooks()->addBook($this->book('Refactoring', '45'));
+        $order->getProducts()->addProduct($this->product('Refactoring', '45'));
 
-        $this->assertCount(1, $order->getBooks()->getBooks());
+        $this->assertCount(1, $order->getProducts()->getProducts());
     }
 
-    public function testCreateKeepsItsOwnBookCollection(): void
+    public function testCreateKeepsItsOwnProductCollection(): void
     {
-        $books = new BookCollection([
-            $this->book('Domain-Driven Design', '40'),
+        $products = new ProductCollection([
+            $this->product('Domain-Driven Design', '40'),
         ]);
-        $order = Order::create(CustomerId::random(), $books);
+        $order = Order::create(CustomerId::random(), $products);
 
-        $books->addBook($this->book('Refactoring', '45'));
+        $products->addProduct($this->product('Refactoring', '45'));
 
-        $this->assertCount(1, $order->getBooks()->getBooks());
+        $this->assertCount(1, $order->getProducts()->getProducts());
     }
 
-    public function testAddBookAppendsTheBookToAPendingOrder(): void
+    public function testAddProductAppendsTheProductToAPendingOrder(): void
     {
-        $order = $this->orderWithBooks();
-        $book = $this->book('Refactoring', '45');
+        $order = $this->orderWithProducts();
+        $product = $this->product('Refactoring', '45');
 
-        $order->addBook($book);
+        $order->addProduct($product);
 
-        $books = $order->getBooks()->getBooks();
-        $this->assertCount(2, $books);
-        $this->assertSame($book, $books[1]);
-        $this->assertSame('Refactoring', $books[1]->title);
+        $products = $order->getProducts()->getProducts();
+        $this->assertCount(2, $products);
+        $this->assertSame($product, $products[1]);
+        $this->assertSame('Refactoring', $products[1]->title);
         $this->assertSame(8500, $order->getTotal()->getAmount());
         $this->assertSame('USD', $order->getTotal()->getCurrency());
     }
 
-    public function testAddBookRejectsADifferentCurrency(): void
+    public function testAddProductRejectsADifferentCurrency(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Currencies must be the same');
 
-        $order->addBook(new Book(
+        $order->addProduct(new Product(
             'Refactoring',
             'Martin Fowler',
             Money::create('45', 'BRL'),
         ));
     }
 
-    public function testAddBookRejectsAConfirmedOrder(): void
+    public function testAddProductRejectsAConfirmedOrder(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->confirm();
 
         $this->expectException(InvalidOrderStateException::class);
         $this->expectExceptionMessage('Order is not pending');
 
-        $order->addBook($this->book('Refactoring', '45'));
+        $order->addProduct($this->product('Refactoring', '45'));
     }
 
     public function testCreateReleasesOrderCreated(): void
     {
         $customerId = CustomerId::random();
-        $order = Order::create($customerId, new BookCollection([
-            $this->book('Domain-Driven Design', '40'),
+        $order = Order::create($customerId, new ProductCollection([
+            $this->product('Domain-Driven Design', '40'),
         ]));
 
         $events = $order->releaseEvents();
@@ -231,7 +231,7 @@ class OrderTest extends TestCase
 
     public function testConfirmReleasesOrderConfirmed(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->releaseEvents();
 
         $order->confirm();
@@ -245,7 +245,7 @@ class OrderTest extends TestCase
 
     public function testCancelReleasesOrderCancelled(): void
     {
-        $order = $this->orderWithBooks();
+        $order = $this->orderWithProducts();
         $order->releaseEvents();
 
         $order->cancel();
@@ -257,15 +257,15 @@ class OrderTest extends TestCase
         $this->assertSame(4000, $events[0]->total->getAmount());
     }
 
-    private function orderWithBooks(): Order
+    private function orderWithProducts(): Order
     {
-        return Order::create(CustomerId::random(), new BookCollection([
-            $this->book('Domain-Driven Design', '40'),
+        return Order::create(CustomerId::random(), new ProductCollection([
+            $this->product('Domain-Driven Design', '40'),
         ]));
     }
 
-    private function book(string $title, string $amount): Book
+    private function product(string $title, string $amount): Product
     {
-        return new Book($title, 'Eric Evans', Money::create($amount, 'USD'));
+        return new Product($title, 'Eric Evans', Money::create($amount, 'USD'));
     }
 }

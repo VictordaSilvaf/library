@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Tests\Ordering\Infrastructure\Persistence;
 
 use App\Ordering\Domain\Aggregate\Order;
-use App\Ordering\Domain\ValueObject\Book;
-use App\Ordering\Domain\ValueObject\BookCollection;
+use App\Ordering\Domain\ValueObject\Product;
+use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Ordering\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\OrderId;
@@ -49,8 +49,8 @@ class DoctrineOrderRepositoryTest extends TestCase
     public function testPersistsAndReloadsAnOrderById(): void
     {
         $customerId = CustomerId::random();
-        $order = Order::create($customerId, new BookCollection([
-            $this->book('Domain-Driven Design', '40.50', 'BRL'),
+        $order = Order::create($customerId, new ProductCollection([
+            $this->product('Domain-Driven Design', '40.50', 'BRL'),
         ]));
         $order->releaseEvents();
         $id = $order->getId();
@@ -66,9 +66,9 @@ class DoctrineOrderRepositoryTest extends TestCase
         $this->assertTrue($loaded->getStatus()->isPending());
         $this->assertSame(4050, $loaded->getTotal()->getAmount());
         $this->assertSame('BRL', $loaded->getTotal()->getCurrency());
-        $this->assertSame('Domain-Driven Design', $loaded->getBooks()->getBooks()[0]->getTitle());
-        $this->assertSame(4050, $loaded->getBooks()->getBooks()[0]->getPrice()->getAmount());
-        $this->assertSame('BRL', $loaded->getBooks()->getBooks()[0]->getPrice()->getCurrency());
+        $this->assertSame('Domain-Driven Design', $loaded->getProducts()->getProducts()[0]->getTitle());
+        $this->assertSame(4050, $loaded->getProducts()->getProducts()[0]->getPrice()->getAmount());
+        $this->assertSame('BRL', $loaded->getProducts()->getProducts()[0]->getPrice()->getCurrency());
         $this->assertSame([], $loaded->releaseEvents());
         $this->assertNull($loaded->getConfirmedAt());
         $this->assertNull($loaded->getCancelledAt());
@@ -89,21 +89,21 @@ class DoctrineOrderRepositoryTest extends TestCase
         $this->assertSame([], $confirmed->releaseEvents());
     }
 
-    public function testAddBookIsPersistedOnTheNextSave(): void
+    public function testAddProductIsPersistedOnTheNextSave(): void
     {
-        $order = Order::create(CustomerId::random(), new BookCollection([
-            $this->book('Domain-Driven Design', '40', 'USD'),
+        $order = Order::create(CustomerId::random(), new ProductCollection([
+            $this->product('Domain-Driven Design', '40', 'USD'),
         ]));
         $this->repository->save($order);
 
-        $order->addBook($this->book('Implementing Domain-Driven Design', '45', 'USD'));
+        $order->addProduct($this->product('Implementing Domain-Driven Design', '45', 'USD'));
         $this->repository->save($order);
         $this->entityManager->clear();
 
         $loaded = $this->repository->findById($order->getId());
 
         $this->assertInstanceOf(Order::class, $loaded);
-        $this->assertCount(2, $loaded->getBooks()->getBooks());
+        $this->assertCount(2, $loaded->getProducts()->getProducts());
         $this->assertSame(8500, $loaded->getTotal()->getAmount());
         $this->assertSame('USD', $loaded->getTotal()->getCurrency());
     }
@@ -113,8 +113,8 @@ class DoctrineOrderRepositoryTest extends TestCase
         $this->assertNull($this->repository->findById(OrderId::random()));
     }
 
-    private function book(string $title, string $amount, string $currency): Book
+    private function product(string $title, string $amount, string $currency): Product
     {
-        return new Book($title, 'Eric Evans', Money::create($amount, $currency));
+        return new Product($title, 'Eric Evans', Money::create($amount, $currency));
     }
 }

@@ -10,7 +10,7 @@ use JsonSerializable;
 class OrderOutput implements JsonSerializable
 {
     /**
-     * @param list<array{title: string, author: string, price: array{amount: int, currency: string}}> $books
+     * @param list<array{title: string, author: string, price: array{amount: int, currency: string}}> $products
      */
     private function __construct(
         private readonly string $id,
@@ -18,21 +18,21 @@ class OrderOutput implements JsonSerializable
         private readonly string $status,
         private readonly int $totalAmount,
         private readonly string $currency,
-        private readonly array $books,
+        private readonly array $products,
     ) {
     }
 
     public static function fromOrder(Order $order): self
     {
-        $books = [];
+        $products = [];
 
-        foreach ($order->getBooks()->getBooks() as $book) {
-            $books[] = [
-                'title' => $book->getTitle(),
-                'author' => $book->getAuthor(),
+        foreach ($order->getProducts()->getProducts() as $product) {
+            $products[] = [
+                'title' => $product->getTitle(),
+                'author' => $product->getAuthor(),
                 'price' => [
-                    'amount' => $book->getPrice()->getAmount(),
-                    'currency' => $book->getPrice()->getCurrency(),
+                    'amount' => $product->getPrice()->getAmount(),
+                    'currency' => $product->getPrice()->getCurrency(),
                 ],
             ];
         }
@@ -43,7 +43,7 @@ class OrderOutput implements JsonSerializable
             $order->getStatus()->getValue(),
             $order->getTotal()->getAmount(),
             $order->getTotal()->getCurrency(),
-            $books,
+            $products,
         );
     }
 
@@ -65,7 +65,7 @@ class OrderOutput implements JsonSerializable
                 'amount' => $this->totalAmount,
                 'currency' => $this->currency,
             ],
-            'books' => $this->books,
+            'products' => $this->products,
         ];
     }
 }

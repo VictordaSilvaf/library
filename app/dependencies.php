@@ -3,6 +3,9 @@
 declare(strict_types=1);
 
 use App\Application\Settings\SettingsInterface;
+use App\Ordering\Application\Event\EventDispatcher;
+use App\Ordering\Infrastructure\Event\OrderEventLogger;
+use App\Ordering\Infrastructure\Event\SynchronousEventDispatcher;
 use App\Ordering\Infrastructure\Persistence\Doctrine\EntityManagerFactory;
 use DI\ContainerBuilder;
 use Doctrine\ORM\EntityManagerInterface;
@@ -30,6 +33,11 @@ return function (ContainerBuilder $containerBuilder) {
         },
         EntityManagerInterface::class => static function (): EntityManagerInterface {
             return (new EntityManagerFactory())->create();
+        },
+        EventDispatcher::class => function (ContainerInterface $container): EventDispatcher {
+            return new SynchronousEventDispatcher([
+                $container->get(OrderEventLogger::class),
+            ]);
         },
     ]);
 };

@@ -26,8 +26,8 @@ class OrderActionTest extends TestCase
 
         $response = $app->handle($this->createRequest('POST', '/orders')->withParsedBody([
             'customerId' => $customerId,
-            'books' => [
-                $this->book('Domain-Driven Design', '40.00'),
+            'products' => [
+                $this->product('Domain-Driven Design', '40.00'),
             ],
         ]));
 
@@ -39,8 +39,8 @@ class OrderActionTest extends TestCase
         $this->assertSame('pending', $data['status']);
         $this->assertSame(4000, $data['total']['amount']);
         $this->assertSame('USD', $data['total']['currency']);
-        $this->assertSame('Domain-Driven Design', $data['books'][0]['title']);
-        $this->assertSame(4000, $data['books'][0]['price']['amount']);
+        $this->assertSame('Domain-Driven Design', $data['products'][0]['title']);
+        $this->assertSame(4000, $data['products'][0]['price']['amount']);
         $this->assertSame([], $orders->findById(new OrderId($data['id']))->releaseEvents());
     }
 
@@ -50,8 +50,8 @@ class OrderActionTest extends TestCase
         $this->useOrders($app);
         $created = $this->payload($app->handle($this->createRequest('POST', '/orders')->withParsedBody([
             'customerId' => CustomerId::random()->getValue(),
-            'books' => [
-                $this->book('Domain-Driven Design', '40.00'),
+            'products' => [
+                $this->product('Domain-Driven Design', '40.00'),
             ],
         ])));
 
@@ -69,8 +69,8 @@ class OrderActionTest extends TestCase
         $this->useOrders($app);
         $created = $this->payload($app->handle($this->createRequest('POST', '/orders')->withParsedBody([
             'customerId' => CustomerId::random()->getValue(),
-            'books' => [
-                $this->book('Domain-Driven Design', '40.00'),
+            'products' => [
+                $this->product('Domain-Driven Design', '40.00'),
             ],
         ])));
 
@@ -89,10 +89,10 @@ class OrderActionTest extends TestCase
 
         $response = $app->handle($this->createRequest('POST', '/orders')->withParsedBody([
             'customerId' => CustomerId::random()->getValue(),
-            'books' => [],
+            'products' => [],
         ]));
 
-        $expected = new ActionPayload(400, null, new ActionError(ActionError::BAD_REQUEST, 'Books are required'));
+        $expected = new ActionPayload(400, null, new ActionError(ActionError::BAD_REQUEST, 'Products are required'));
 
         $this->assertSame(400, $response->getStatusCode());
         $this->assertSame(json_encode($expected, JSON_PRETTY_PRINT), (string) $response->getBody());
@@ -136,7 +136,7 @@ class OrderActionTest extends TestCase
     /**
      * @return array{title: string, author: string, price: string, currency: string}
      */
-    private function book(string $title, string $price): array
+    private function product(string $title, string $price): array
     {
         return [
             'title' => $title,
