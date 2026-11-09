@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Ordering\Domain\ValueObject;
 
-class BookId
+use App\Shared\Domain\ValueObject\Uuid;
+
+class BookId extends Uuid
 {
 }

@@ -2,6 +2,7 @@
 
 namespace App\Ordering\Domain\ValueObject;
 
+
 class BookCollection
 {
     /**
