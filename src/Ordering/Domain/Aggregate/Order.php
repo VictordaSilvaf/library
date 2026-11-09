@@ -49,13 +49,13 @@ class Order
         private OrderStatus $status,
         #[ORM\Embedded(class: Money::class, columnPrefix: 'total_')]
         private Money $total,
-        #[ORM\Column(type: 'datetime_immutable')]
+        #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
         private readonly DateTimeImmutable $createdAt,
-        #[ORM\Column(type: 'datetime_immutable')]
+        #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
         private DateTimeImmutable $updatedAt,
-        #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+        #[ORM\Column(name: 'confirmed_at', type: 'datetime_immutable', nullable: true)]
         private ?DateTimeImmutable $confirmedAt = null,
-        #[ORM\Column(type: 'datetime_immutable', nullable: true)]
+        #[ORM\Column(name: 'cancelled_at', type: 'datetime_immutable', nullable: true)]
         private ?DateTimeImmutable $cancelledAt = null,
     ) {
         $this->books = $books->copy();

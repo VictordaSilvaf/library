@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use App\Application\Settings\SettingsInterface;
+use App\Ordering\Infrastructure\Persistence\Doctrine\EntityManagerFactory;
 use DI\ContainerBuilder;
+use Doctrine\ORM\EntityManagerInterface;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Monolog\Processor\UidProcessor;
@@ -25,6 +27,9 @@ return function (ContainerBuilder $containerBuilder) {
             $logger->pushHandler($handler);
 
             return $logger;
+        },
+        EntityManagerInterface::class => static function (): EntityManagerInterface {
+            return (new EntityManagerFactory())->create();
         },
     ]);
 };
