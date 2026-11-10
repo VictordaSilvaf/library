@@ -6,9 +6,8 @@ use App\Bootstrap\PayloadCodec;
 use App\Catalog\Infrastructure\Event\CatalogEventLogger;
 use App\Ordering\Infrastructure\Event\OrderingEventLogger;
 use App\Shared\Domain\Event\EventDispatcher;
-use App\Shared\Domain\Event\EventPublisher;
 use App\Shared\Domain\Event\SynchronousEventDispatcher;
-use App\Shared\Infrastructure\Event\OutboxEventPublisher;
+use App\Shared\Infrastructure\Event\OutboxRelay;
 use App\Shared\Infrastructure\Persistence\DomainEventSerializer;
 use App\Shared\Infrastructure\Settings\SettingsInterface;
 use App\Ordering\Infrastructure\Persistence\Doctrine\EntityManagerFactory;
@@ -46,9 +45,10 @@ return function (ContainerBuilder $containerBuilder) {
             ]);
         },
         DomainEventSerializer::class => static fn (): DomainEventSerializer => PayloadCodec::serializer(),
-        EventPublisher::class => function (ContainerInterface $container): EventPublisher {
-            return new OutboxEventPublisher(
+        OutboxRelay::class => function (ContainerInterface $container): OutboxRelay {
+            return new OutboxRelay(
                 $container->get(EntityManagerInterface::class)->getConnection(),
+                $container->get(DomainEventSerializer::class),
                 $container->get(EventDispatcher::class),
             );
         },

@@ -15,7 +15,7 @@ use App\Shared\Domain\Event\DomainEvent;
 use App\Shared\Domain\Event\EventDispatcher;
 use App\Shared\Domain\Event\SynchronousEventDispatcher;
 use App\Shared\Domain\ValueObject\Money;
-use App\Shared\Infrastructure\Event\OutboxEventPublisher;
+use App\Shared\Infrastructure\Event\OutboxRelay;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\EntityManager;
@@ -24,9 +24,9 @@ use RuntimeException;
 use Tests\Ordering\Support\RecordingListener;
 use Tests\TestCase;
 
-final class OutboxEventPublisherTest extends TestCase
+final class OutboxRelayTest extends TestCase
 {
-    public function testAFailedDispatchLeavesTheEventUnpublished(): void
+    public function testTheRequestLeavesTheEventUnpublishedUntilTheRelayRuns(): void
     {
         $config = new Configuration();
         $config->setMetadataDriverImpl(new AttributeDriver([dirname(__DIR__, 4) . '/src/Ordering/Domain']));
@@ -37,13 +37,17 @@ final class OutboxEventPublisherTest extends TestCase
             'driver' => 'pdo_sqlite',
             'memory' => true,
         ]), $config);
-        $repository = new DoctrineOrderRepository($entityManager, PayloadCodec::serializer());
+        $serializer = PayloadCodec::serializer();
+        $repository = new DoctrineOrderRepository($entityManager, $serializer);
         $order = Order::create(CustomerId::random(), new ProductCollection([
             new Product('Domain-Driven Design', 'Eric Evans', Money::create('40.00', 'USD')),
         ]));
         $events = $repository->save($order);
         $eventId = $events[0]->getEventId()->getValue();
-        $failing = new OutboxEventPublisher($entityManager->getConnection(), new class implements EventDispatcher {
+
+        $this->assertNull($this->publishedAt($entityManager, $eventId));
+
+        $failing = new OutboxRelay($entityManager->getConnection(), $serializer, new class implements EventDispatcher {
             public function dispatch(DomainEvent $event): void
             {
                 throw new RuntimeException('listener down');
@@ -51,20 +55,27 @@ final class OutboxEventPublisherTest extends TestCase
         });
 
         try {
-            $failing->publish($events);
+            $failing->publishPending();
             $this->fail('A failing listener must leave the event unpublished.');
         } catch (RuntimeException) {
             $this->assertNull($this->publishedAt($entityManager, $eventId));
         }
 
         $listener = new RecordingListener();
-        (new OutboxEventPublisher(
+        $published = (new OutboxRelay(
             $entityManager->getConnection(),
+            $serializer,
             new SynchronousEventDispatcher([$listener]),
-        ))->publish($events);
+        ))->publishPending();
 
+        $this->assertSame(1, $published);
         $this->assertNotNull($this->publishedAt($entityManager, $eventId));
         $this->assertInstanceOf(OrderCreated::class, $listener->events[0]);
+        $this->assertSame(0, (new OutboxRelay(
+            $entityManager->getConnection(),
+            $serializer,
+            new SynchronousEventDispatcher([$listener]),
+        ))->publishPending());
     }
 
     private function publishedAt(EntityManager $entityManager, string $eventId): mixed

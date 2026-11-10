@@ -10,26 +10,18 @@ use App\Ordering\Application\Command\CreateOrder;
 use App\Ordering\Application\Handler\CancelOrderHandler;
 use App\Ordering\Application\Handler\ConfirmOrderHandler;
 use App\Ordering\Application\Handler\CreateOrderHandler;
-use App\Ordering\Domain\Event\OrderCancelled;
-use App\Ordering\Domain\Event\OrderConfirmed;
-use App\Ordering\Domain\Event\OrderCreated;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\Product;
 use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Shared\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\OrderId;
-use App\Shared\Domain\Event\SynchronousEventDispatcher;
-use App\Shared\Infrastructure\Event\DirectEventPublisher;
 use Tests\Ordering\Support\InMemoryOrderRepository;
-use Tests\Ordering\Support\RecordingListener;
 use Tests\TestCase;
 
 class OrderHandlerTest extends TestCase
 {
     private InMemoryOrderRepository $orders;
-
-    private RecordingListener $listener;
 
     private CreateOrderHandler $create;
 
@@ -40,54 +32,48 @@ class OrderHandlerTest extends TestCase
     protected function setUp(): void
     {
         $this->orders = new InMemoryOrderRepository();
-        $this->listener = new RecordingListener();
-        $publisher = new DirectEventPublisher(new SynchronousEventDispatcher([$this->listener]));
-        $this->create = new CreateOrderHandler($this->orders, $publisher);
-        $this->confirm = new ConfirmOrderHandler($this->orders, $publisher);
-        $this->cancel = new CancelOrderHandler($this->orders, $publisher);
+        $this->create = new CreateOrderHandler($this->orders);
+        $this->confirm = new ConfirmOrderHandler($this->orders);
+        $this->cancel = new CancelOrderHandler($this->orders);
     }
 
-    public function testCreateDispatchesOrderCreated(): void
+    public function testCreateStoresAPendingOrder(): void
     {
         $output = $this->create->handle($this->command());
+        $stored = $this->orders->findById(new OrderId($output->getId()));
 
-        $this->assertCount(1, $this->listener->events);
-        $this->assertInstanceOf(OrderCreated::class, $this->listener->events[0]);
-        $this->assertSame($output->getId(), $this->listener->events[0]->orderId->getValue());
+        $this->assertNotNull($stored);
+        $this->assertTrue($stored->getStatus()->isPending());
+        $this->assertSame([], $stored->releaseEvents());
     }
 
-    public function testConfirmDispatchesOrderConfirmed(): void
+    public function testConfirmStoresTheConfirmedOrder(): void
     {
         $created = $this->create->handle($this->command());
-        $this->listener->events = [];
 
         $this->confirm->handle(new ConfirmOrder(new OrderId($created->getId())));
+        $stored = $this->orders->findById(new OrderId($created->getId()));
 
-        $this->assertCount(1, $this->listener->events);
-        $this->assertInstanceOf(OrderConfirmed::class, $this->listener->events[0]);
-        $this->assertSame($created->getId(), $this->listener->events[0]->orderId->getValue());
+        $this->assertNotNull($stored);
+        $this->assertTrue($stored->getStatus()->isConfirmed());
     }
 
-    public function testCancelDispatchesOrderCancelled(): void
+    public function testCancelStoresTheCancelledOrder(): void
     {
         $created = $this->create->handle($this->command());
-        $this->listener->events = [];
 
         $this->cancel->handle(new CancelOrder(new OrderId($created->getId())));
+        $stored = $this->orders->findById(new OrderId($created->getId()));
 
-        $this->assertCount(1, $this->listener->events);
-        $this->assertInstanceOf(OrderCancelled::class, $this->listener->events[0]);
-        $this->assertSame($created->getId(), $this->listener->events[0]->orderId->getValue());
+        $this->assertNotNull($stored);
+        $this->assertTrue($stored->getStatus()->isCancelled());
     }
 
-    public function testMissingOrderDoesNotDispatchAnEvent(): void
+    public function testMissingOrderIsRejected(): void
     {
-        try {
-            $this->confirm->handle(new ConfirmOrder(OrderId::random()));
-            $this->fail('A missing order must be rejected');
-        } catch (OrderNotFoundException) {
-            $this->assertSame([], $this->listener->events);
-        }
+        $this->expectException(OrderNotFoundException::class);
+
+        $this->confirm->handle(new ConfirmOrder(OrderId::random()));
     }
 
     private function command(): CreateOrder

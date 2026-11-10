@@ -7,9 +7,6 @@ namespace Tests\Catalog\Infrastructure\Http;
 use App\Catalog\Domain\Repository\CatalogRepository;
 use App\Catalog\Domain\ValueObject\CatalogId;
 use App\Catalog\Domain\ValueObject\CategoryId;
-use App\Shared\Domain\Event\EventPublisher;
-use App\Shared\Domain\Event\SynchronousEventDispatcher;
-use App\Shared\Infrastructure\Event\DirectEventPublisher;
 use App\Shared\Infrastructure\Http\ActionError;
 use App\Shared\Infrastructure\Http\ActionPayload;
 use App\Shared\Infrastructure\Http\HttpErrorHandler;
@@ -95,7 +92,6 @@ final class CatalogActionTest extends TestCase
         /** @var Container $container */
         $container = $app->getContainer();
         $container->set(CatalogRepository::class, $catalogs);
-        $container->set(EventPublisher::class, new DirectEventPublisher(new SynchronousEventDispatcher([])));
 
         return $catalogs;
     }

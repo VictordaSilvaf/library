@@ -6,7 +6,6 @@ namespace App\Ordering\Application\Handler;
 
 use App\Ordering\Application\Command\CreateOrder;
 use App\Ordering\Application\DTO\OrderOutput;
-use App\Shared\Domain\Event\EventPublisher;
 use App\Ordering\Domain\Aggregate\Order;
 use App\Ordering\Domain\Repository\OrderRepository;
 
@@ -14,14 +13,13 @@ class CreateOrderHandler
 {
     public function __construct(
         private readonly OrderRepository $orders,
-        private readonly EventPublisher $events,
     ) {
     }
 
     public function handle(CreateOrder $command): OrderOutput
     {
         $order = Order::create($command->getCustomerId(), $command->getProducts());
-        $this->events->publish($this->orders->save($order));
+        $this->orders->save($order);
 
         return OrderOutput::fromOrder($order);
     }
