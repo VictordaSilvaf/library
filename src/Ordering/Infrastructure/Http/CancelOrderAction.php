@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Infrastructure\Http;
 
-use App\Application\Actions\Action;
+use App\Shared\Infrastructure\Http\Action;
 use App\Ordering\Application\Command\CancelOrder;
 use App\Ordering\Application\Handler\CancelOrderHandler;
 use App\Ordering\Domain\Exception\InvalidOrderStateException;

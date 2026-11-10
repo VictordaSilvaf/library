@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Infrastructure\Http;
 
-use App\Application\Actions\Action;
+use App\Shared\Infrastructure\Http\Action;
 use App\Ordering\Application\DTO\OrderInput;
 use App\Ordering\Application\Handler\CreateOrderHandler;
 use App\Ordering\Domain\Exception\EmptyOrderException;

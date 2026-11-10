@@ -17,7 +17,7 @@ use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\Product;
 use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
-use App\Ordering\Domain\ValueObject\Money;
+use App\Shared\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\OrderId;
 use App\Ordering\Infrastructure\Event\SynchronousEventDispatcher;
 use Tests\Ordering\Support\InMemoryOrderRepository;

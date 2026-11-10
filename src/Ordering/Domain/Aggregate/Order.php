@@ -14,9 +14,10 @@ use App\Ordering\Domain\ValueObject\{
     OrderId,
     CustomerId,
     OrderStatus,
-    Money,
     ProductCollection
 };
+use App\Shared\Domain\Event\RecordsDomainEvents;
+use App\Shared\Domain\ValueObject\Money;
 use DateTimeImmutable;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -27,13 +28,10 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\HasLifecycleCallbacks]
 class Order
 {
+    use RecordsDomainEvents;
+
     #[ORM\Column(name: 'products', type: 'product_collection')]
     private ProductCollection $products;
-
-    /**
-     * @var array<int, OrderCreated|OrderConfirmed|OrderCancelled>
-     */
-    private array $domainEvents = [];
 
     /**
      * @param ProductCollection $products
@@ -96,12 +94,6 @@ class Order
         return $order;
     }
 
-    #[ORM\PostLoad]
-    public function initializeTransientState(): void
-    {
-        $this->domainEvents = [];
-    }
-
     public function getId(): OrderId
     {
         return $this->id;
@@ -145,17 +137,6 @@ class Order
     public function getCancelledAt(): ?DateTimeImmutable
     {
         return $this->cancelledAt;
-    }
-
-    /**
-     * @return array<int, OrderCreated|OrderConfirmed|OrderCancelled>
-     */
-    public function releaseEvents(): array
-    {
-        $events = $this->domainEvents;
-        $this->domainEvents = [];
-
-        return $events;
     }
 
     public function confirm(): void
@@ -222,10 +203,5 @@ class Order
         if (!$this->status->isPending()) {
             throw new InvalidOrderStateException('Order is not pending');
         }
-    }
-
-    private function record(OrderCreated|OrderConfirmed|OrderCancelled $event): void
-    {
-        $this->domainEvents[] = $event;
     }
 }

@@ -2,6 +2,8 @@
 
 namespace App\Ordering\Domain\ValueObject;
 
+use App\Shared\Domain\ValueObject\Money;
+
 class Product
 {
     public function __construct(

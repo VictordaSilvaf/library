@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Ordering\Infrastructure\Http;
 
-use App\Application\Actions\ActionError;
-use App\Application\Actions\ActionPayload;
-use App\Application\Handlers\HttpErrorHandler;
+use App\Shared\Infrastructure\Http\ActionError;
+use App\Shared\Infrastructure\Http\ActionPayload;
+use App\Shared\Infrastructure\Http\HttpErrorHandler;
 use App\Ordering\Domain\Repository\OrderRepository;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Ordering\Domain\ValueObject\OrderId;

@@ -82,7 +82,7 @@ tests/Ordering/                   # Testes do módulo de pedidos.
 
 `OrderId` e `CustomerId` estendem um `Uuid` compartilhado. O construtor só aceita o formato UUID. `random()` gera um id novo. `__toString()` devolve o valor, porque o Doctrine precisa transformar o id em texto.
 
-`Money` guarda o valor em centavos, num inteiro. `create('40.50', 'USD')` vira `4050`. `fromCents()` reconstitui esse inteiro na leitura do banco. `add()` e `subtract()` recusam moedas diferentes. Preço zero ou negativo é inválido.
+`Money` fica em `src/Shared/Domain/ValueObject`, porque pedido e catálogo usam o mesmo dinheiro. Ele guarda o valor em centavos, num inteiro. `create('40.50', 'USD')` vira `4050`. `fromCents()` reconstitui esse inteiro na leitura do banco. `add()` e `subtract()` recusam moedas diferentes. Preço zero ou negativo é inválido.
 
 `Product` carrega título, autor e `Money`. `ProductCollection` guarda uma lista de produtos, copia a si mesma em `copy()` e não devolve a lista interna para quem está fora. `OrderStatus` é um enum `pending`, `confirmed` e `cancelled`.
 
@@ -159,7 +159,7 @@ O corpo de `POST /orders` fica assim:
 
 ### 8. Abra a HTTP
 
-As actions estendem `App\Application\Actions\Action`. Cada uma lê a requisição, chama o handler e responde com o `OrderOutput`.
+As actions estendem `App\Shared\Infrastructure\Http\Action`. Cada uma lê a requisição, chama o handler e responde com o `OrderOutput`.
 
 - `CreateOrderAction` lê o corpo, monta o comando e responde `201`. `EmptyOrderException` e `InvalidArgumentException` viram `400`.
 - `ConfirmOrderAction` e `CancelOrderAction` leem `{id}` da rota e montam o comando. Um UUID inválido vira `400`. Um pedido fora de `pending` também vira `400`.

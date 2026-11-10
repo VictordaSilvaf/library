@@ -13,7 +13,7 @@ use App\Ordering\Domain\Exception\InvalidOrderStateException;
 use App\Ordering\Domain\ValueObject\Product;
 use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
-use App\Ordering\Domain\ValueObject\Money;
+use App\Shared\Domain\ValueObject\Money;
 use InvalidArgumentException;
 use Tests\TestCase;
 

@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Catalog\Domain\Event;
+
+use App\Catalog\Domain\ValueObjects\{
+    CatalogId,
+    CatalogStatus,
+};
+use App\Shared\Domain\Event\DomainEvent;
+
+class CatalogConfirmed implements DomainEvent
+{
+    public function __construct(
+        public readonly CatalogId $catalogId,
+        public readonly CatalogStatus $status,
+    ) {
+    }
+}

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Application\Settings\SettingsInterface;
+use App\Shared\Infrastructure\Settings\SettingsInterface;
 use App\Ordering\Application\Event\EventDispatcher;
 use App\Ordering\Infrastructure\Event\OrderEventLogger;
 use App\Ordering\Infrastructure\Event\SynchronousEventDispatcher;

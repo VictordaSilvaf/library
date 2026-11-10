@@ -8,10 +8,11 @@ use App\Ordering\Domain\ValueObject\{
     OrderId,
     CustomerId,
     ProductCollection,
-    Money,
 };
+use App\Shared\Domain\Event\DomainEvent;
+use App\Shared\Domain\ValueObject\Money;
 
-class OrderCancelled
+class OrderCancelled implements DomainEvent
 {
     public function __construct(
         public readonly OrderId $orderId,

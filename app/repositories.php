@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Domain\User\UserRepository;
-use App\Infrastructure\Persistence\User\InMemoryUserRepository;
+use App\User\Domain\UserRepository;
+use App\User\Infrastructure\Persistence\InMemoryUserRepository;
 use App\Ordering\Domain\Repository\OrderRepository;
 use App\Ordering\Infrastructure\Persistence\DoctrineOrderRepository;
 use DI\ContainerBuilder;

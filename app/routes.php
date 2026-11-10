@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Application\Actions\User\ListUsersAction;
-use App\Application\Actions\User\ViewUserAction;
+use App\User\Infrastructure\Http\ListUsersAction;
+use App\User\Infrastructure\Http\ViewUserAction;
 use App\Ordering\Infrastructure\Http\CancelOrderAction;
 use App\Ordering\Infrastructure\Http\ConfirmOrderAction;
 use App\Ordering\Infrastructure\Http\CreateOrderAction;

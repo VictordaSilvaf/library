@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Ordering\Infrastructure\Persistence\Doctrine;
 
-use App\Ordering\Domain\ValueObject\Money;
+use App\Shared\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\Product;
 use App\Ordering\Domain\ValueObject\ProductCollection;
 use Doctrine\DBAL\Platforms\AbstractPlatform;
