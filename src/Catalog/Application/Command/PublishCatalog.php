@@ -7,7 +7,7 @@ namespace App\Catalog\Application\Command;
 use App\Catalog\Domain\ValueObject\CatalogId;
 use DateTimeImmutable;
 
-final class ConfirmCatalog
+final class PublishCatalog
 {
     public function __construct(
         private readonly CatalogId $catalogId,

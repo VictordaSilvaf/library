@@ -6,7 +6,7 @@ namespace App\Ordering\Application\Handler;
 
 use App\Ordering\Application\Command\CancelOrder;
 use App\Ordering\Application\DTO\OrderOutput;
-use App\Shared\Domain\Event\EventDispatcher;
+use App\Shared\Domain\Event\EventPublisher;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\Repository\OrderRepository;
 
@@ -14,7 +14,7 @@ class CancelOrderHandler
 {
     public function __construct(
         private readonly OrderRepository $orders,
-        private readonly EventDispatcher $events,
+        private readonly EventPublisher $events,
     ) {
     }
 
@@ -27,10 +27,7 @@ class CancelOrderHandler
         }
 
         $order->cancel();
-
-        foreach ($this->orders->save($order) as $event) {
-            $this->events->dispatch($event);
-        }
+        $this->events->publish($this->orders->save($order));
 
         return OrderOutput::fromOrder($order);
     }

@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace App\Catalog\Application\Handler;
 
-use App\Catalog\Application\Command\CancelCatalog;
+use App\Catalog\Application\Command\WithdrawCatalog;
 use App\Catalog\Domain\Aggregate\Catalog;
 use App\Catalog\Domain\Exception\CatalogNotFoundException;
 use App\Catalog\Domain\Repository\CatalogRepository;
-use App\Shared\Domain\Event\EventDispatcher;
+use App\Shared\Domain\Event\EventPublisher;
 
-final class CancelCatalogHandler
+final class WithdrawCatalogHandler
 {
     public function __construct(
         private readonly CatalogRepository $catalogs,
-        private readonly EventDispatcher $events,
+        private readonly EventPublisher $events,
     ) {
     }
 
-    public function handle(CancelCatalog $command): Catalog
+    public function handle(WithdrawCatalog $command): Catalog
     {
         $catalog = $this->catalogs->findById($command->getCatalogId());
 
@@ -26,11 +26,8 @@ final class CancelCatalogHandler
             throw new CatalogNotFoundException();
         }
 
-        $catalog->cancel($command->getOccurredAt());
-
-        foreach ($this->catalogs->save($catalog) as $event) {
-            $this->events->dispatch($event);
-        }
+        $catalog->withdraw($command->getOccurredAt());
+        $this->events->publish($this->catalogs->save($catalog));
 
         return $catalog;
     }

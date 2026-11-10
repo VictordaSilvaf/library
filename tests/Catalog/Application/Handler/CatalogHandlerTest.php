@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Tests\Catalog\Application\Handler;
 
-use App\Catalog\Application\Command\CancelCatalog;
-use App\Catalog\Application\Command\ConfirmCatalog;
 use App\Catalog\Application\Command\CreateCatalog;
-use App\Catalog\Application\Handler\CancelCatalogHandler;
-use App\Catalog\Application\Handler\ConfirmCatalogHandler;
+use App\Catalog\Application\Command\PublishCatalog;
+use App\Catalog\Application\Command\WithdrawCatalog;
 use App\Catalog\Application\Handler\CreateCatalogHandler;
-use App\Catalog\Domain\Event\CatalogCancelled;
-use App\Catalog\Domain\Event\CatalogConfirmed;
+use App\Catalog\Application\Handler\PublishCatalogHandler;
+use App\Catalog\Application\Handler\WithdrawCatalogHandler;
 use App\Catalog\Domain\Event\CatalogCreated;
+use App\Catalog\Domain\Event\CatalogPublished;
+use App\Catalog\Domain\Event\CatalogWithdrawn;
 use App\Catalog\Domain\Exception\CatalogNotFoundException;
 use App\Catalog\Domain\ValueObject\CatalogId;
 use App\Catalog\Domain\ValueObject\CatalogStatus;
@@ -21,6 +21,7 @@ use App\Catalog\Domain\ValueObject\Image;
 use App\Catalog\Domain\ValueObject\ImageCollection;
 use App\Catalog\Domain\ValueObject\Sku;
 use App\Shared\Domain\Event\SynchronousEventDispatcher;
+use App\Shared\Infrastructure\Event\DirectEventPublisher;
 use App\Shared\Domain\ValueObject\Money;
 use DateTimeImmutable;
 use DateTimeZone;
@@ -36,27 +37,27 @@ final class CatalogHandlerTest extends TestCase
 
     private CreateCatalogHandler $create;
 
-    private ConfirmCatalogHandler $confirm;
+    private PublishCatalogHandler $publish;
 
-    private CancelCatalogHandler $cancel;
+    private WithdrawCatalogHandler $withdraw;
 
     protected function setUp(): void
     {
         $this->catalogs = new InMemoryCatalogRepository();
         $this->listener = new RecordingListener();
-        $dispatcher = new SynchronousEventDispatcher([$this->listener]);
-        $this->create = new CreateCatalogHandler($this->catalogs, $dispatcher);
-        $this->confirm = new ConfirmCatalogHandler($this->catalogs, $dispatcher);
-        $this->cancel = new CancelCatalogHandler($this->catalogs, $dispatcher);
+        $publisher = new DirectEventPublisher(new SynchronousEventDispatcher([$this->listener]));
+        $this->create = new CreateCatalogHandler($this->catalogs, $publisher);
+        $this->publish = new PublishCatalogHandler($this->catalogs, $publisher);
+        $this->withdraw = new WithdrawCatalogHandler($this->catalogs, $publisher);
     }
 
-    public function testCreateDispatchesCatalogCreatedAndReconstitutesPending(): void
+    public function testCreateDispatchesCatalogCreatedAndReconstitutesDraft(): void
     {
         $id = CatalogId::random();
         $catalog = $this->create->handle($this->command($id));
         $stored = $this->catalogs->findById($id);
 
-        $this->assertSame(CatalogStatus::PENDING, $catalog->getStatus());
+        $this->assertSame(CatalogStatus::DRAFT, $catalog->getStatus());
         $this->assertSame(1, $catalog->getVersion());
         $this->assertInstanceOf(CatalogCreated::class, $this->listener->events[0]);
         $this->assertNotNull($stored);
@@ -64,25 +65,25 @@ final class CatalogHandlerTest extends TestCase
         $this->assertSame('Dune', $stored->getName());
     }
 
-    public function testConfirmThenCancelDispatchTheTransitionEvents(): void
+    public function testPublishThenWithdrawDispatchTheTransitionEvents(): void
     {
         $id = CatalogId::random();
         $this->create->handle($this->command($id));
         $this->listener->events = [];
 
-        $this->confirm->handle(new ConfirmCatalog($id, $this->moment('+1 hour')));
-        $this->cancel->handle(new CancelCatalog($id, $this->moment('+2 hours')));
+        $this->publish->handle(new PublishCatalog($id, $this->moment('+1 hour')));
+        $this->withdraw->handle(new WithdrawCatalog($id, $this->moment('+2 hours')));
 
-        $this->assertInstanceOf(CatalogConfirmed::class, $this->listener->events[0]);
-        $this->assertInstanceOf(CatalogCancelled::class, $this->listener->events[1]);
-        $this->assertSame(CatalogStatus::CANCELLED, $this->catalogs->findById($id)?->getStatus());
+        $this->assertInstanceOf(CatalogPublished::class, $this->listener->events[0]);
+        $this->assertInstanceOf(CatalogWithdrawn::class, $this->listener->events[1]);
+        $this->assertSame(CatalogStatus::WITHDRAWN, $this->catalogs->findById($id)?->getStatus());
         $this->assertSame(3, $this->catalogs->findById($id)?->getVersion());
     }
 
     public function testMissingCatalogDoesNotDispatchAnEvent(): void
     {
         try {
-            $this->confirm->handle(new ConfirmCatalog(CatalogId::random(), $this->moment('+1 hour')));
+            $this->publish->handle(new PublishCatalog(CatalogId::random(), $this->moment('+1 hour')));
             $this->fail('A missing catalog must be rejected');
         } catch (CatalogNotFoundException) {
             $this->assertSame([], $this->listener->events);

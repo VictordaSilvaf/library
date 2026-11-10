@@ -11,6 +11,7 @@ use App\Catalog\Domain\ValueObject\CategoryId;
 use App\Catalog\Domain\ValueObject\Image;
 use App\Catalog\Domain\ValueObject\ImageCollection;
 use App\Catalog\Domain\ValueObject\Sku;
+use App\Bootstrap\PayloadCodec;
 use App\Catalog\Infrastructure\Persistence\DoctrineCatalogRepository;
 use App\Shared\Domain\Exception\ConcurrentModificationException;
 use App\Shared\Domain\ValueObject\Money;
@@ -37,7 +38,7 @@ final class DoctrineCatalogRepositoryTest extends TestCase
             'driver' => 'pdo_sqlite',
             'memory' => true,
         ]), $config);
-        $this->repository = new DoctrineCatalogRepository($entityManager);
+        $this->repository = new DoctrineCatalogRepository($entityManager, PayloadCodec::serializer());
     }
 
     public function testReloadRebuildsTheCatalogFromTheEventStream(): void
@@ -49,18 +50,18 @@ final class DoctrineCatalogRepositoryTest extends TestCase
         $loaded = $this->repository->findById($id);
 
         $this->assertNotNull($loaded);
-        $this->assertSame(CatalogStatus::PENDING, $loaded->getStatus());
+        $this->assertSame(CatalogStatus::DRAFT, $loaded->getStatus());
         $this->assertSame('Dune', $loaded->getName());
         $this->assertSame(1, $loaded->getVersion());
         $this->assertSame([], $loaded->releaseEvents());
 
-        $loaded->confirm($this->moment('+1 hour'));
+        $loaded->publish($this->moment('+1 hour'));
         $this->repository->save($loaded);
 
-        $confirmed = $this->repository->findById($id);
+        $published = $this->repository->findById($id);
 
-        $this->assertSame(CatalogStatus::CONFIRMED, $confirmed?->getStatus());
-        $this->assertSame(2, $confirmed?->getVersion());
+        $this->assertSame(CatalogStatus::PUBLISHED, $published?->getStatus());
+        $this->assertSame(2, $published?->getVersion());
     }
 
     public function testAStaleStreamIsRejected(): void
@@ -72,8 +73,8 @@ final class DoctrineCatalogRepositoryTest extends TestCase
         $this->assertNotNull($first);
         $this->assertNotNull($second);
 
-        $first->confirm($this->moment('+1 hour'));
-        $second->confirm($this->moment('+2 hours'));
+        $first->publish($this->moment('+1 hour'));
+        $second->publish($this->moment('+2 hours'));
         $this->repository->save($first);
 
         $this->expectException(ConcurrentModificationException::class);

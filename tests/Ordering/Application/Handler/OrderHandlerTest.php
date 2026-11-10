@@ -20,6 +20,7 @@ use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Shared\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\OrderId;
 use App\Shared\Domain\Event\SynchronousEventDispatcher;
+use App\Shared\Infrastructure\Event\DirectEventPublisher;
 use Tests\Ordering\Support\InMemoryOrderRepository;
 use Tests\Ordering\Support\RecordingListener;
 use Tests\TestCase;
@@ -40,10 +41,10 @@ class OrderHandlerTest extends TestCase
     {
         $this->orders = new InMemoryOrderRepository();
         $this->listener = new RecordingListener();
-        $dispatcher = new SynchronousEventDispatcher([$this->listener]);
-        $this->create = new CreateOrderHandler($this->orders, $dispatcher);
-        $this->confirm = new ConfirmOrderHandler($this->orders, $dispatcher);
-        $this->cancel = new CancelOrderHandler($this->orders, $dispatcher);
+        $publisher = new DirectEventPublisher(new SynchronousEventDispatcher([$this->listener]));
+        $this->create = new CreateOrderHandler($this->orders, $publisher);
+        $this->confirm = new ConfirmOrderHandler($this->orders, $publisher);
+        $this->cancel = new CancelOrderHandler($this->orders, $publisher);
     }
 
     public function testCreateDispatchesOrderCreated(): void

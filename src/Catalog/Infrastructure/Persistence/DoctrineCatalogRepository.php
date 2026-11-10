@@ -11,38 +11,38 @@ use App\Catalog\Domain\ValueObject\CatalogId;
 use App\Catalog\Domain\ValueObject\CatalogStatus;
 use App\Shared\Infrastructure\Persistence\DoctrineEventStore;
 use App\Shared\Infrastructure\Persistence\DomainEventSerializer;
-use DateTimeInterface;
+use App\Shared\Infrastructure\Persistence\EventStreamWriter;
 use Doctrine\ORM\EntityManagerInterface;
 
 final class DoctrineCatalogRepository implements CatalogRepository
 {
-    private DoctrineEventStore $store;
+    private EventStreamWriter $streams;
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        DomainEventSerializer $serializer,
     ) {
         $connection = $entityManager->getConnection();
         DoctrineEventStore::ensureSchema($connection);
-        $this->store = new DoctrineEventStore($connection, new DomainEventSerializer());
+        $this->streams = new EventStreamWriter(
+            $connection,
+            new DoctrineEventStore($connection, $serializer),
+            new CatalogProjector($connection),
+        );
     }
 
     public function save(Catalog $catalog): array
     {
         $events = $catalog->pendingEvents();
-        $this->store->append(
-            $catalog->getId()->getValue(),
-            $catalog->getVersion() - count($events),
-            $events,
-        );
+        $this->streams->commit($catalog->getId()->getValue(), $catalog->getVersion(), $events);
         $catalog->releaseEvents();
-        $this->upsert($catalog);
 
         return $events;
     }
 
     public function findById(CatalogId $id): ?Catalog
     {
-        $history = $this->store->load($id->getValue());
+        $history = $this->streams->load($id->getValue());
 
         if ($history === []) {
             return null;
@@ -59,7 +59,7 @@ final class DoctrineCatalogRepository implements CatalogRepository
     public function delete(Catalog $catalog): void
     {
         $id = $catalog->getId()->getValue();
-        $this->store->delete($id);
+        $this->streams->delete($id);
         $this->entityManager->getConnection()->delete('catalogs', ['id' => $id]);
     }
 
@@ -90,47 +90,5 @@ final class DoctrineCatalogRepository implements CatalogRepository
         }
 
         return $catalogs;
-    }
-
-    private function upsert(Catalog $catalog): void
-    {
-        $images = array_map(
-            static fn ($image): string => $image->url,
-            $catalog->getImages()->all(),
-        );
-
-        $this->entityManager->getConnection()->executeStatement(
-            'INSERT INTO catalogs (
-                id, sku, name, description, price_amount, price_currency, category_id,
-                status, images, created_at, updated_at, confirmed_at, cancelled_at, version
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT (id) DO UPDATE SET
-                name = excluded.name,
-                description = excluded.description,
-                price_amount = excluded.price_amount,
-                price_currency = excluded.price_currency,
-                status = excluded.status,
-                images = excluded.images,
-                updated_at = excluded.updated_at,
-                confirmed_at = excluded.confirmed_at,
-                cancelled_at = excluded.cancelled_at,
-                version = excluded.version',
-            [
-                $catalog->getId()->getValue(),
-                $catalog->getSku()->value(),
-                $catalog->getName(),
-                $catalog->getDescription(),
-                $catalog->getPrice()->getAmount(),
-                $catalog->getPrice()->getCurrency(),
-                $catalog->getCategoryId()->getValue(),
-                $catalog->getStatus()->getValue(),
-                json_encode($images, JSON_THROW_ON_ERROR),
-                $catalog->getCreatedAt()->format(DateTimeInterface::ATOM),
-                $catalog->getUpdatedAt()->format(DateTimeInterface::ATOM),
-                $catalog->getConfirmedAt()?->format(DateTimeInterface::ATOM),
-                $catalog->getCancelledAt()?->format(DateTimeInterface::ATOM),
-                $catalog->getVersion(),
-            ],
-        );
     }
 }

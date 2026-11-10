@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Catalog\Domain\Aggregate;
 
-use App\Catalog\Domain\Event\CatalogCancelled;
-use App\Catalog\Domain\Event\CatalogConfirmed;
 use App\Catalog\Domain\Event\CatalogCreated;
+use App\Catalog\Domain\Event\CatalogPublished;
+use App\Catalog\Domain\Event\CatalogWithdrawn;
 use App\Catalog\Domain\Event\CatalogDescriptionChanged;
 use App\Catalog\Domain\Event\CatalogImagesReplaced;
 use App\Catalog\Domain\Event\CatalogNameChanged;
@@ -54,9 +54,9 @@ final class Catalog
 
     private DateTimeImmutable $updatedAt;
 
-    private ?DateTimeImmutable $confirmedAt = null;
+    private ?DateTimeImmutable $publishedAt = null;
 
-    private ?DateTimeImmutable $cancelledAt = null;
+    private ?DateTimeImmutable $withdrawnAt = null;
 
     private function __construct()
     {
@@ -90,7 +90,7 @@ final class Catalog
             price: $price,
             categoryId: $categoryId,
             images: $images,
-            status: CatalogStatus::PENDING,
+            status: CatalogStatus::DRAFT,
             occurredAt: self::utc($occurredAt),
         ));
 
@@ -108,26 +108,26 @@ final class Catalog
         return $catalog;
     }
 
-    public function confirm(DateTimeImmutable $occurredAt): void
+    public function publish(DateTimeImmutable $occurredAt): void
     {
-        $this->assertStatus(CatalogStatus::PENDING, 'confirm');
+        $this->assertStatus(CatalogStatus::DRAFT, 'publish');
 
-        $this->record(new CatalogConfirmed(
+        $this->record(new CatalogPublished(
             eventId: EventId::random(),
             catalogId: $this->id,
-            status: CatalogStatus::CONFIRMED,
+            status: CatalogStatus::PUBLISHED,
             occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
 
-    public function cancel(DateTimeImmutable $occurredAt): void
+    public function withdraw(DateTimeImmutable $occurredAt): void
     {
-        $this->assertStatus(CatalogStatus::CONFIRMED, 'cancel');
+        $this->assertStatus(CatalogStatus::PUBLISHED, 'withdraw');
 
-        $this->record(new CatalogCancelled(
+        $this->record(new CatalogWithdrawn(
             eventId: EventId::random(),
             catalogId: $this->id,
-            status: CatalogStatus::CANCELLED,
+            status: CatalogStatus::WITHDRAWN,
             occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
@@ -256,14 +256,14 @@ final class Catalog
         return $this->updatedAt;
     }
 
-    public function getConfirmedAt(): ?DateTimeImmutable
+    public function getPublishedAt(): ?DateTimeImmutable
     {
-        return $this->confirmedAt;
+        return $this->publishedAt;
     }
 
-    public function getCancelledAt(): ?DateTimeImmutable
+    public function getWithdrawnAt(): ?DateTimeImmutable
     {
-        return $this->cancelledAt;
+        return $this->withdrawnAt;
     }
 
     protected function apply(DomainEvent $event): void
@@ -279,23 +279,23 @@ final class Catalog
             $this->images = $event->images->copy();
             $this->createdAt = $event->occurredAt;
             $this->updatedAt = $event->occurredAt;
-            $this->confirmedAt = null;
-            $this->cancelledAt = null;
+            $this->publishedAt = null;
+            $this->withdrawnAt = null;
 
             return;
         }
 
-        if ($event instanceof CatalogConfirmed) {
+        if ($event instanceof CatalogPublished) {
             $this->status = $event->status;
-            $this->confirmedAt = $event->occurredAt;
+            $this->publishedAt = $event->occurredAt;
             $this->updatedAt = $event->occurredAt;
 
             return;
         }
 
-        if ($event instanceof CatalogCancelled) {
+        if ($event instanceof CatalogWithdrawn) {
             $this->status = $event->status;
-            $this->cancelledAt = $event->occurredAt;
+            $this->withdrawnAt = $event->occurredAt;
             $this->updatedAt = $event->occurredAt;
 
             return;

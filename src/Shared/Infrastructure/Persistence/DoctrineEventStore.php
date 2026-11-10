@@ -27,6 +27,7 @@ final class DoctrineEventStore
                 event_type VARCHAR(255) NOT NULL,
                 payload TEXT NOT NULL,
                 occurred_at VARCHAR(40) NOT NULL,
+                published_at VARCHAR(40) NULL,
                 PRIMARY KEY (stream_id, version)
             )'
         );
@@ -57,11 +58,25 @@ final class DoctrineEventStore
                 images TEXT NOT NULL,
                 created_at VARCHAR(40) NOT NULL,
                 updated_at VARCHAR(40) NOT NULL,
-                confirmed_at VARCHAR(40) NULL,
-                cancelled_at VARCHAR(40) NULL,
+                published_at VARCHAR(40) NULL,
+                withdrawn_at VARCHAR(40) NULL,
                 version INTEGER NOT NULL
             )'
         );
+        self::ensureColumn($connection, 'domain_events', 'published_at', 'VARCHAR(40) NULL');
+        self::ensureColumn($connection, 'catalogs', 'published_at', 'VARCHAR(40) NULL');
+        self::ensureColumn($connection, 'catalogs', 'withdrawn_at', 'VARCHAR(40) NULL');
+    }
+
+    private static function ensureColumn(Connection $connection, string $table, string $column, string $definition): void
+    {
+        foreach (array_keys($connection->createSchemaManager()->listTableColumns($table)) as $name) {
+            if (strtolower((string) $name) === $column) {
+                return;
+            }
+        }
+
+        $connection->executeStatement(sprintf('ALTER TABLE %s ADD COLUMN %s %s', $table, $column, $definition));
     }
 
     /**
@@ -125,15 +140,11 @@ final class DoctrineEventStore
 
     private function eventId(DomainEvent $event): string
     {
-        if (isset($event->eventId) && is_object($event->eventId) && method_exists($event->eventId, 'getValue')) {
-            return $event->eventId->getValue();
-        }
-
-        return $event->eventId;
+        return $event->getEventId()->getValue();
     }
 
     private function occurredAt(DomainEvent $event): string
     {
-        return $event->occurredAt->format(\DateTimeInterface::ATOM);
+        return $event->getOccurredAt()->format(\DateTimeInterface::ATOM);
     }
 }

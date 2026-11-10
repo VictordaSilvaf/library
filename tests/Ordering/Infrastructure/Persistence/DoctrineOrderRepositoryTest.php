@@ -10,6 +10,7 @@ use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Shared\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\OrderId;
+use App\Bootstrap\PayloadCodec;
 use App\Ordering\Infrastructure\Persistence\DoctrineOrderRepository;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\Configuration;
@@ -35,7 +36,7 @@ class DoctrineOrderRepositoryTest extends TestCase
             'memory' => true,
         ]);
         $this->entityManager = new EntityManager($connection, $config);
-        $this->repository = new DoctrineOrderRepository($this->entityManager);
+        $this->repository = new DoctrineOrderRepository($this->entityManager, PayloadCodec::serializer());
     }
 
     public function testPersistsAndReloadsAnOrderById(): void

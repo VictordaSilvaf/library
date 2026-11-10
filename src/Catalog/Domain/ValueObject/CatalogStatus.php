@@ -6,32 +6,32 @@ namespace App\Catalog\Domain\ValueObject;
 
 enum CatalogStatus: string
 {
-    case PENDING = 'pending';
-    case CONFIRMED = 'confirmed';
-    case CANCELLED = 'cancelled';
+    case DRAFT = 'draft';
+    case PUBLISHED = 'published';
+    case WITHDRAWN = 'withdrawn';
 
     public function getValue(): string
     {
         return $this->value;
     }
 
-    public function isPending(): bool
+    public function isDraft(): bool
     {
-        return $this === self::PENDING;
+        return $this === self::DRAFT;
     }
 
-    public function isConfirmed(): bool
+    public function isPublished(): bool
     {
-        return $this === self::CONFIRMED;
+        return $this === self::PUBLISHED;
     }
 
-    public function isCancelled(): bool
+    public function isWithdrawn(): bool
     {
-        return $this === self::CANCELLED;
+        return $this === self::WITHDRAWN;
     }
 
     public function isTerminal(): bool
     {
-        return $this === self::CANCELLED;
+        return $this === self::WITHDRAWN;
     }
 }

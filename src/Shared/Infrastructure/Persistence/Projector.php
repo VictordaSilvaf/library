@@ -1,0 +1,12 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Shared\Infrastructure\Persistence;
+
+use App\Shared\Domain\Event\DomainEvent;
+
+interface Projector
+{
+    public function apply(DomainEvent $event): void;
+}

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Catalog\Infrastructure\Http\CreateCatalogAction;
+use App\Catalog\Infrastructure\Http\PublishCatalogAction;
+use App\Catalog\Infrastructure\Http\WithdrawCatalogAction;
 use App\User\Infrastructure\Http\ListUsersAction;
 use App\User\Infrastructure\Http\ViewUserAction;
 use App\Ordering\Infrastructure\Http\CancelOrderAction;
@@ -32,5 +35,11 @@ return function (App $app) {
         $group->post('', CreateOrderAction::class);
         $group->post('/{id}/confirm', ConfirmOrderAction::class);
         $group->post('/{id}/cancel', CancelOrderAction::class);
+    });
+
+    $app->group('/catalogs', function (Group $group) {
+        $group->post('', CreateCatalogAction::class);
+        $group->post('/{id}/publish', PublishCatalogAction::class);
+        $group->post('/{id}/withdraw', WithdrawCatalogAction::class);
     });
 };

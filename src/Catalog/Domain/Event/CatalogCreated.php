@@ -9,13 +9,16 @@ use App\Catalog\Domain\ValueObject\CatalogStatus;
 use App\Catalog\Domain\ValueObject\CategoryId;
 use App\Catalog\Domain\ValueObject\ImageCollection;
 use App\Catalog\Domain\ValueObject\Sku;
-use App\Shared\Domain\Event\DomainEvent;
 use App\Shared\Domain\Event\EventId;
+use App\Shared\Domain\Event\StoredEvent;
 use App\Shared\Domain\ValueObject\Money;
 use DateTimeImmutable;
 
-class CatalogCreated implements DomainEvent
+class CatalogCreated implements CatalogEvent
 {
+    use StoredEvent;
+    use IdentifiesCatalog;
+
     public function __construct(
         public readonly EventId $eventId,
         public readonly CatalogId $catalogId,
