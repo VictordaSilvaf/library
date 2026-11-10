@@ -38,6 +38,17 @@ class Money
         return $this->currency;
     }
 
+    public function isPositive(): bool
+    {
+        return $this->amount > 0;
+    }
+
+    public function equals(self $other): bool
+    {
+        return $this->amount === $other->amount
+            && $this->currency === $other->currency;
+    }
+
     public function add(Money $other): self
     {
         if ($this->currency !== $other->currency) {

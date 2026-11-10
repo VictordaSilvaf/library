@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Domain\Repository;
 
 use App\Catalog\Domain\Catalog;
-use App\Catalog\Domain\ValueObjects\{
+use App\Catalog\Domain\ValueObject\{
     CatalogCollection,
     CatalogId,
     CatalogStatus,

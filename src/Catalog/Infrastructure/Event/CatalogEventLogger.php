@@ -7,6 +7,10 @@ namespace App\Catalog\Infrastructure\Event;
 use App\Catalog\Domain\Event\CatalogCancelled;
 use App\Catalog\Domain\Event\CatalogConfirmed;
 use App\Catalog\Domain\Event\CatalogCreated;
+use App\Catalog\Domain\Event\CatalogDescriptionChanged;
+use App\Catalog\Domain\Event\CatalogImagesReplaced;
+use App\Catalog\Domain\Event\CatalogNameChanged;
+use App\Catalog\Domain\Event\CatalogPriceChanged;
 use App\Shared\Domain\Event\DomainEventLogger;
 use Psr\Log\LoggerInterface;
 
@@ -33,6 +37,30 @@ final class CatalogEventLogger implements DomainEventLogger
 
         if ($event instanceof CatalogCancelled) {
             $this->logger->info("CatalogCancelled received for catalog {$event->catalogId->getValue()}.");
+
+            return;
+        }
+
+        if ($event instanceof CatalogNameChanged) {
+            $this->logger->info("CatalogNameChanged received for catalog {$event->catalogId->getValue()}.");
+
+            return;
+        }
+
+        if ($event instanceof CatalogDescriptionChanged) {
+            $this->logger->info("CatalogDescriptionChanged received for catalog {$event->catalogId->getValue()}.");
+
+            return;
+        }
+
+        if ($event instanceof CatalogPriceChanged) {
+            $this->logger->info("CatalogPriceChanged received for catalog {$event->catalogId->getValue()}.");
+
+            return;
+        }
+
+        if ($event instanceof CatalogImagesReplaced) {
+            $this->logger->info("CatalogImagesReplaced received for catalog {$event->catalogId->getValue()}.");
         }
     }
 }

@@ -2,25 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Src\Catalog\Domain\ValueObjects;
+namespace App\Catalog\Domain\ValueObject;
 
-use InvalidArgumentException;
-use Ramsey\Collection\Collection;
-
-class ImageCollection extends Collection
+class ImageCollection
 {
     /** @var list<Image> */
-    public array $items;
+    private array $items;
 
     public function __construct(Image ...$images)
     {
-        if (count($images) === 0) {
-            throw new InvalidArgumentException(
-                'At least one image is required.'
-            );
-        }
-
         $this->items = array_values($images);
+    }
+
+    public function isEmpty(): bool
+    {
+        return $this->items === [];
     }
 
     public function count(): int
@@ -30,6 +26,10 @@ class ImageCollection extends Collection
 
     public function first(): Image
     {
+        if ($this->items === []) {
+            throw new \DomainException('Image collection is empty.');
+        }
+
         return $this->items[0];
     }
 
