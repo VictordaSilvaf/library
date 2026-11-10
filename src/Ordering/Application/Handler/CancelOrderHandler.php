@@ -27,9 +27,8 @@ class CancelOrderHandler
         }
 
         $order->cancel();
-        $this->orders->save($order);
 
-        foreach ($order->releaseEvents() as $event) {
+        foreach ($this->orders->save($order) as $event) {
             $this->events->dispatch($event);
         }
 

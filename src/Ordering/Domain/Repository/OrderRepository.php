@@ -12,7 +12,10 @@ use App\Ordering\Domain\ValueObject\OrderStatus;
 
 interface OrderRepository
 {
-    public function save(Order $order): void;
+    /**
+     * @return list<\App\Shared\Domain\Event\DomainEvent>
+     */
+    public function save(Order $order): array;
 
     public function findById(OrderId $id): ?Order;
 

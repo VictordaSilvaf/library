@@ -18,9 +18,12 @@ class InMemoryOrderRepository implements OrderRepository
      */
     private array $orders = [];
 
-    public function save(Order $order): void
+    public function save(Order $order): array
     {
+        $events = $order->releaseEvents();
         $this->orders[$order->getId()->getValue()] = $order;
+
+        return $events;
     }
 
     public function findById(OrderId $id): ?Order

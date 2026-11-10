@@ -21,9 +21,8 @@ class CreateOrderHandler
     public function handle(CreateOrder $command): OrderOutput
     {
         $order = Order::create($command->getCustomerId(), $command->getProducts());
-        $this->orders->save($order);
 
-        foreach ($order->releaseEvents() as $event) {
+        foreach ($this->orders->save($order) as $event) {
             $this->events->dispatch($event);
         }
 

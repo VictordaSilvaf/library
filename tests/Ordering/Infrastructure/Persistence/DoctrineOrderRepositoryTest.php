@@ -10,13 +10,11 @@ use App\Ordering\Domain\ValueObject\ProductCollection;
 use App\Ordering\Domain\ValueObject\CustomerId;
 use App\Shared\Domain\ValueObject\Money;
 use App\Ordering\Domain\ValueObject\OrderId;
-use App\Ordering\Infrastructure\Persistence\Doctrine\DoctrineTypes;
 use App\Ordering\Infrastructure\Persistence\DoctrineOrderRepository;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
-use Doctrine\ORM\Tools\SchemaTool;
 use Tests\TestCase;
 
 class DoctrineOrderRepositoryTest extends TestCase
@@ -27,8 +25,6 @@ class DoctrineOrderRepositoryTest extends TestCase
 
     protected function setUp(): void
     {
-        DoctrineTypes::register();
-
         $config = new Configuration();
         $config->setMetadataDriverImpl(new AttributeDriver([dirname(__DIR__, 4) . '/src/Ordering/Domain']));
         $config->setProxyDir(sys_get_temp_dir());
@@ -39,10 +35,6 @@ class DoctrineOrderRepositoryTest extends TestCase
             'memory' => true,
         ]);
         $this->entityManager = new EntityManager($connection, $config);
-
-        $schema = new SchemaTool($this->entityManager);
-        $schema->createSchema($this->entityManager->getMetadataFactory()->getAllMetadata());
-
         $this->repository = new DoctrineOrderRepository($this->entityManager);
     }
 
@@ -52,7 +44,6 @@ class DoctrineOrderRepositoryTest extends TestCase
         $order = Order::create($customerId, new ProductCollection([
             $this->product('Domain-Driven Design', '40.50', 'BRL'),
         ]));
-        $order->releaseEvents();
         $id = $order->getId();
 
         $this->repository->save($order);

@@ -11,37 +11,55 @@ use App\Catalog\Domain\Event\CatalogDescriptionChanged;
 use App\Catalog\Domain\Event\CatalogImagesReplaced;
 use App\Catalog\Domain\Event\CatalogNameChanged;
 use App\Catalog\Domain\Event\CatalogPriceChanged;
+use App\Catalog\Domain\Exception\EmptyCatalogException;
+use App\Catalog\Domain\Exception\InvalidCatalogStateException;
 use App\Catalog\Domain\ValueObject\CatalogId;
 use App\Catalog\Domain\ValueObject\CatalogStatus;
 use App\Catalog\Domain\ValueObject\CategoryId;
+use App\Catalog\Domain\ValueObject\Image;
 use App\Catalog\Domain\ValueObject\ImageCollection;
 use App\Catalog\Domain\ValueObject\Sku;
-use App\Shared\Domain\Event\RecordsDomainEvents;
+use App\Shared\Domain\Event\DomainEvent;
+use App\Shared\Domain\Event\EventId;
+use App\Shared\Domain\Event\EventSourcedAggregate;
 use App\Shared\Domain\ValueObject\Money;
 use DateTimeImmutable;
 use DateTimeZone;
-use DomainException;
 
 final class Catalog
 {
-    use RecordsDomainEvents;
+    use EventSourcedAggregate;
 
-    private int $version = 1;
+    private const NAME_LIMIT = 255;
 
-    private function __construct(
-        private readonly CatalogId $id,
-        private readonly Sku $sku,
-        private string $name,
-        private string $description,
-        private Money $price,
-        private readonly CategoryId $categoryId,
-        private CatalogStatus $status,
-        private ImageCollection $images,
-        private readonly DateTimeImmutable $createdAt,
-        private DateTimeImmutable $updatedAt,
-        private ?DateTimeImmutable $confirmedAt = null,
-        private ?DateTimeImmutable $cancelledAt = null,
-    ) {
+    private const DESCRIPTION_LIMIT = 4000;
+
+    private CatalogId $id;
+
+    private Sku $sku;
+
+    private string $name;
+
+    private string $description;
+
+    private Money $price;
+
+    private CategoryId $categoryId;
+
+    private CatalogStatus $status;
+
+    private ImageCollection $images;
+
+    private DateTimeImmutable $createdAt;
+
+    private DateTimeImmutable $updatedAt;
+
+    private ?DateTimeImmutable $confirmedAt = null;
+
+    private ?DateTimeImmutable $cancelledAt = null;
+
+    private function __construct()
+    {
     }
 
     public static function create(
@@ -56,33 +74,15 @@ final class Catalog
     ): self {
         $name = self::normalizeText($name, 'name');
         $description = self::normalizeText($description, 'description');
-
         self::assertValidName($name);
         self::assertValidDescription($description);
         self::assertValidPrice($price);
-
         $images = $images->copy();
-        if ($images->isEmpty()) {
-            throw new DomainException('Catalog must contain at least one image.');
-        }
+        self::assertHasImages($images);
 
-        $occurredAt = self::utc($occurredAt);
-
-        $catalog = new self(
-            id: $id,
-            sku: $sku,
-            name: $name,
-            description: $description,
-            price: $price,
-            categoryId: $categoryId,
-            status: CatalogStatus::PENDING,
-            images: $images,
-            createdAt: $occurredAt,
-            updatedAt: $occurredAt,
-        );
-
+        $catalog = new self();
         $catalog->record(new CatalogCreated(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $id,
             sku: $sku,
             name: $name,
@@ -91,8 +91,19 @@ final class Catalog
             categoryId: $categoryId,
             images: $images,
             status: CatalogStatus::PENDING,
-            occurredAt: $occurredAt,
+            occurredAt: self::utc($occurredAt),
         ));
+
+        return $catalog;
+    }
+
+    /**
+     * @param list<DomainEvent> $history
+     */
+    public static function reconstitute(array $history): self
+    {
+        $catalog = new self();
+        $catalog->replay($history);
 
         return $catalog;
     }
@@ -101,18 +112,11 @@ final class Catalog
     {
         $this->assertStatus(CatalogStatus::PENDING, 'confirm');
 
-        $occurredAt = $this->validatedOccurredAt($occurredAt);
-
-        $this->status = CatalogStatus::CONFIRMED;
-        $this->confirmedAt = $occurredAt;
-        $this->updatedAt = $occurredAt;
-        $this->version++;
-
         $this->record(new CatalogConfirmed(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $this->id,
-            status: $this->status,
-            occurredAt: $occurredAt,
+            status: CatalogStatus::CONFIRMED,
+            occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
 
@@ -120,25 +124,17 @@ final class Catalog
     {
         $this->assertStatus(CatalogStatus::CONFIRMED, 'cancel');
 
-        $occurredAt = $this->validatedOccurredAt($occurredAt);
-
-        $this->status = CatalogStatus::CANCELLED;
-        $this->cancelledAt = $occurredAt;
-        $this->updatedAt = $occurredAt;
-        $this->version++;
-
         $this->record(new CatalogCancelled(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $this->id,
-            status: $this->status,
-            occurredAt: $occurredAt,
+            status: CatalogStatus::CANCELLED,
+            occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
 
     public function changeName(string $name, DateTimeImmutable $occurredAt): void
     {
         $this->assertNotTerminal();
-
         $name = self::normalizeText($name, 'name');
         self::assertValidName($name);
 
@@ -146,26 +142,18 @@ final class Catalog
             return;
         }
 
-        $occurredAt = $this->validatedOccurredAt($occurredAt);
-        $previous = $this->name;
-
-        $this->name = $name;
-        $this->updatedAt = $occurredAt;
-        $this->version++;
-
         $this->record(new CatalogNameChanged(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $this->id,
-            previousName: $previous,
+            previousName: $this->name,
             newName: $name,
-            occurredAt: $occurredAt,
+            occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
 
     public function changeDescription(string $description, DateTimeImmutable $occurredAt): void
     {
         $this->assertNotTerminal();
-
         $description = self::normalizeText($description, 'description');
         self::assertValidDescription($description);
 
@@ -173,19 +161,12 @@ final class Catalog
             return;
         }
 
-        $occurredAt = $this->validatedOccurredAt($occurredAt);
-        $previous = $this->description;
-
-        $this->description = $description;
-        $this->updatedAt = $occurredAt;
-        $this->version++;
-
         $this->record(new CatalogDescriptionChanged(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $this->id,
-            previousDescription: $previous,
+            previousDescription: $this->description,
             newDescription: $description,
-            occurredAt: $occurredAt,
+            occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
 
@@ -198,48 +179,32 @@ final class Catalog
             return;
         }
 
-        $occurredAt = $this->validatedOccurredAt($occurredAt);
-        $previous = $this->price;
-
-        $this->price = $price;
-        $this->updatedAt = $occurredAt;
-        $this->version++;
-
         $this->record(new CatalogPriceChanged(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $this->id,
-            previousPrice: $previous,
+            previousPrice: $this->price,
             newPrice: $price,
-            occurredAt: $occurredAt,
+            occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
 
     public function replaceImages(ImageCollection $images, DateTimeImmutable $occurredAt): void
     {
         $this->assertNotTerminal();
-
         $images = $images->copy();
-        if ($images->isEmpty()) {
-            throw new DomainException('Catalog must contain at least one image.');
+        self::assertHasImages($images);
+
+        if ($this->sameImages($this->images, $images)) {
+            return;
         }
 
-        $occurredAt = $this->validatedOccurredAt($occurredAt);
-
-        $this->images = $images;
-        $this->updatedAt = $occurredAt;
-        $this->version++;
-
         $this->record(new CatalogImagesReplaced(
-            eventId: self::newEventId(),
+            eventId: EventId::random(),
             catalogId: $this->id,
             images: $images,
-            occurredAt: $occurredAt,
+            occurredAt: $this->validatedOccurredAt($occurredAt),
         ));
     }
-
-    // -------------------------------------------------------------------------
-    // Getters
-    // -------------------------------------------------------------------------
 
     public function getId(): CatalogId
     {
@@ -301,19 +266,72 @@ final class Catalog
         return $this->cancelledAt;
     }
 
-    public function getVersion(): int
+    protected function apply(DomainEvent $event): void
     {
-        return $this->version;
-    }
+        if ($event instanceof CatalogCreated) {
+            $this->id = $event->catalogId;
+            $this->sku = $event->sku;
+            $this->name = $event->name;
+            $this->description = $event->description;
+            $this->price = $event->price;
+            $this->categoryId = $event->categoryId;
+            $this->status = $event->status;
+            $this->images = $event->images->copy();
+            $this->createdAt = $event->occurredAt;
+            $this->updatedAt = $event->occurredAt;
+            $this->confirmedAt = null;
+            $this->cancelledAt = null;
 
-    // -------------------------------------------------------------------------
-    // Internal
-    // -------------------------------------------------------------------------
+            return;
+        }
+
+        if ($event instanceof CatalogConfirmed) {
+            $this->status = $event->status;
+            $this->confirmedAt = $event->occurredAt;
+            $this->updatedAt = $event->occurredAt;
+
+            return;
+        }
+
+        if ($event instanceof CatalogCancelled) {
+            $this->status = $event->status;
+            $this->cancelledAt = $event->occurredAt;
+            $this->updatedAt = $event->occurredAt;
+
+            return;
+        }
+
+        if ($event instanceof CatalogNameChanged) {
+            $this->name = $event->newName;
+            $this->updatedAt = $event->occurredAt;
+
+            return;
+        }
+
+        if ($event instanceof CatalogDescriptionChanged) {
+            $this->description = $event->newDescription;
+            $this->updatedAt = $event->occurredAt;
+
+            return;
+        }
+
+        if ($event instanceof CatalogPriceChanged) {
+            $this->price = $event->newPrice;
+            $this->updatedAt = $event->occurredAt;
+
+            return;
+        }
+
+        if ($event instanceof CatalogImagesReplaced) {
+            $this->images = $event->images->copy();
+            $this->updatedAt = $event->occurredAt;
+        }
+    }
 
     private function assertStatus(CatalogStatus $expected, string $operation): void
     {
         if ($this->status !== $expected) {
-            throw new DomainException(sprintf(
+            throw new InvalidCatalogStateException(sprintf(
                 'Cannot %s catalog in status %s; expected %s.',
                 $operation,
                 $this->status->value,
@@ -325,7 +343,7 @@ final class Catalog
     private function assertNotTerminal(): void
     {
         if ($this->status->isTerminal()) {
-            throw new DomainException(sprintf(
+            throw new InvalidCatalogStateException(sprintf(
                 'Cannot modify catalog in terminal status %s.',
                 $this->status->value,
             ));
@@ -337,22 +355,29 @@ final class Catalog
         $occurredAt = self::utc($occurredAt);
 
         if ($occurredAt < $this->updatedAt) {
-            throw new DomainException('Occurred at cannot precede the last change.');
+            throw new InvalidCatalogStateException('Occurred at cannot precede the last change.');
         }
 
         return $occurredAt;
     }
 
+    private static function assertHasImages(ImageCollection $images): void
+    {
+        if ($images->isEmpty()) {
+            throw new EmptyCatalogException('Catalog must contain at least one image.');
+        }
+    }
+
     private static function normalizeText(string $value, string $field): string
     {
         if (!mb_check_encoding($value, 'UTF-8')) {
-            throw new DomainException(sprintf('Catalog %s must be valid UTF-8.', $field));
+            throw new InvalidCatalogStateException(sprintf('Catalog %s must be valid UTF-8.', $field));
         }
 
         $value = preg_replace('/\A[\s\p{Z}]+|[\s\p{Z}]+\z/u', '', $value);
 
         if ($value === null || $value === '' || str_contains($value, "\0")) {
-            throw new DomainException(sprintf('Catalog %s is invalid or empty.', $field));
+            throw new InvalidCatalogStateException(sprintf('Catalog %s is invalid or empty.', $field));
         }
 
         return $value;
@@ -360,30 +385,37 @@ final class Catalog
 
     private static function assertValidName(string $name): void
     {
-        if (mb_strlen($name, 'UTF-8') > 255) {
-            throw new DomainException('Catalog name cannot exceed 255 characters.');
+        if (mb_strlen($name, 'UTF-8') > self::NAME_LIMIT) {
+            throw new InvalidCatalogStateException('Catalog name cannot exceed 255 characters.');
         }
     }
 
     private static function assertValidDescription(string $description): void
     {
-        // length limit can be added here if needed
+        if (mb_strlen($description, 'UTF-8') > self::DESCRIPTION_LIMIT) {
+            throw new InvalidCatalogStateException('Catalog description cannot exceed 4000 characters.');
+        }
     }
 
     private static function assertValidPrice(Money $price): void
     {
         if (!$price->isPositive()) {
-            throw new DomainException('Catalog price must be greater than zero.');
+            throw new InvalidCatalogStateException('Catalog price must be greater than zero.');
         }
+    }
+
+    private static function sameImages(ImageCollection $left, ImageCollection $right): bool
+    {
+        $urls = static fn (ImageCollection $images): array => array_map(
+            static fn (Image $image): string => $image->url,
+            $images->all(),
+        );
+
+        return $urls($left) === $urls($right);
     }
 
     private static function utc(DateTimeImmutable $time): DateTimeImmutable
     {
         return $time->setTimezone(new DateTimeZone('UTC'));
-    }
-
-    private static function newEventId(): string
-    {
-        return bin2hex(random_bytes(16));
     }
 }

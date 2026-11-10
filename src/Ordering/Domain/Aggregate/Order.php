@@ -7,61 +7,48 @@ namespace App\Ordering\Domain\Aggregate;
 use App\Ordering\Domain\Event\OrderCancelled;
 use App\Ordering\Domain\Event\OrderConfirmed;
 use App\Ordering\Domain\Event\OrderCreated;
+use App\Ordering\Domain\Event\OrderProductAdded;
 use App\Ordering\Domain\Exception\EmptyOrderException;
 use App\Ordering\Domain\Exception\InvalidOrderStateException;
-use App\Ordering\Domain\ValueObject\{
-    Product,
-    OrderId,
-    CustomerId,
-    OrderStatus,
-    ProductCollection
-};
-use App\Shared\Domain\Event\RecordsDomainEvents;
+use App\Ordering\Domain\ValueObject\CustomerId;
+use App\Ordering\Domain\ValueObject\OrderId;
+use App\Ordering\Domain\ValueObject\OrderStatus;
+use App\Ordering\Domain\ValueObject\Product;
+use App\Ordering\Domain\ValueObject\ProductCollection;
+use App\Shared\Domain\Event\DomainEvent;
+use App\Shared\Domain\Event\EventId;
+use App\Shared\Domain\Event\EventSourcedAggregate;
 use App\Shared\Domain\ValueObject\Money;
 use DateTimeImmutable;
-use Doctrine\ORM\Mapping as ORM;
 
-#[ORM\Entity]
-#[ORM\Table(name: 'orders')]
-#[ORM\Index(name: 'idx_orders_customer_id', columns: ['customer_id'])]
-#[ORM\Index(name: 'idx_orders_status', columns: ['status'])]
-#[ORM\HasLifecycleCallbacks]
-class Order
+final class Order
 {
-    use RecordsDomainEvents;
+    use EventSourcedAggregate;
 
-    #[ORM\Column(name: 'products', type: 'product_collection')]
+    private OrderId $id;
+
+    private CustomerId $customerId;
+
     private ProductCollection $products;
 
-    /**
-     * @param ProductCollection $products
-     */
-    private function __construct(
-        #[ORM\Id]
-        #[ORM\Column(name: 'id', type: 'order_id', length: 36)]
-        private readonly OrderId $id,
-        #[ORM\Column(name: 'customer_id', type: 'order_customer_id', length: 36)]
-        private readonly CustomerId $customerId,
-        ProductCollection $products,
-        #[ORM\Column(type: 'string', enumType: OrderStatus::class, length: 32)]
-        private OrderStatus $status,
-        #[ORM\Embedded(class: Money::class, columnPrefix: 'total_')]
-        private Money $total,
-        #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
-        private readonly DateTimeImmutable $createdAt,
-        #[ORM\Column(name: 'updated_at', type: 'datetime_immutable')]
-        private DateTimeImmutable $updatedAt,
-        #[ORM\Column(name: 'confirmed_at', type: 'datetime_immutable', nullable: true)]
-        private ?DateTimeImmutable $confirmedAt = null,
-        #[ORM\Column(name: 'cancelled_at', type: 'datetime_immutable', nullable: true)]
-        private ?DateTimeImmutable $cancelledAt = null,
-    ) {
-        $this->products = $products->copy();
+    private OrderStatus $status;
+
+    private Money $total;
+
+    private DateTimeImmutable $createdAt;
+
+    private DateTimeImmutable $updatedAt;
+
+    private ?DateTimeImmutable $confirmedAt = null;
+
+    private ?DateTimeImmutable $cancelledAt = null;
+
+    private function __construct()
+    {
     }
 
     public static function create(CustomerId $customerId, ProductCollection $products): self
     {
-        /** @var Product[] $items */
         $items = array_values($products->getProducts());
 
         if ($items === []) {
@@ -74,24 +61,70 @@ class Order
             $total = $total->add($product->getPrice());
         }
 
-        $order = new self(
+        $occurredAt = new DateTimeImmutable();
+        $order = new self();
+        $order->record(new OrderCreated(
+            EventId::random(),
             OrderId::random(),
             $customerId,
-            $products,
-            OrderStatus::PENDING,
+            $products->copy(),
             $total,
-            new DateTimeImmutable(),
-            new DateTimeImmutable(),
-        );
-
-        $order->record(new OrderCreated(
-            $order->getId(),
-            $order->getCustomerId(),
-            $order->getProducts(),
-            $order->getTotal(),
+            $occurredAt,
         ));
 
         return $order;
+    }
+
+    /**
+     * @param list<DomainEvent> $history
+     */
+    public static function reconstitute(array $history): self
+    {
+        $order = new self();
+        $order->replay($history);
+
+        return $order;
+    }
+
+    public function confirm(): void
+    {
+        $this->validateConfirm();
+
+        $this->record(new OrderConfirmed(
+            EventId::random(),
+            $this->id,
+            $this->customerId,
+            $this->products->copy(),
+            $this->total,
+            new DateTimeImmutable(),
+        ));
+    }
+
+    public function cancel(): void
+    {
+        $this->validateCancel();
+
+        $this->record(new OrderCancelled(
+            EventId::random(),
+            $this->id,
+            $this->customerId,
+            $this->products->copy(),
+            $this->total,
+            new DateTimeImmutable(),
+        ));
+    }
+
+    public function addProduct(Product $product): void
+    {
+        $this->validateAddProduct();
+
+        $this->record(new OrderProductAdded(
+            EventId::random(),
+            $this->id,
+            $product,
+            $this->total->add($product->getPrice()),
+            new DateTimeImmutable(),
+        ));
     }
 
     public function getId(): OrderId
@@ -139,45 +172,45 @@ class Order
         return $this->cancelledAt;
     }
 
-    public function confirm(): void
+    protected function apply(DomainEvent $event): void
     {
-        $this->validateConfirm();
+        if ($event instanceof OrderCreated) {
+            $this->id = $event->orderId;
+            $this->customerId = $event->customerId;
+            $this->products = $event->products->copy();
+            $this->status = OrderStatus::PENDING;
+            $this->total = $event->total;
+            $this->createdAt = $event->occurredAt;
+            $this->updatedAt = $event->occurredAt;
+            $this->confirmedAt = null;
+            $this->cancelledAt = null;
 
-        $this->status = OrderStatus::CONFIRMED;
-        $this->confirmedAt = new DateTimeImmutable();
-        $this->updatedAt = new DateTimeImmutable();
-        $this->record(new OrderConfirmed(
-            $this->id,
-            $this->customerId,
-            $this->getProducts(),
-            $this->total,
-        ));
-    }
+            return;
+        }
 
-    public function cancel(): void
-    {
-        $this->validateCancel();
+        if ($event instanceof OrderConfirmed) {
+            $this->status = OrderStatus::CONFIRMED;
+            $this->confirmedAt = $event->occurredAt;
+            $this->updatedAt = $event->occurredAt;
 
-        $this->status = OrderStatus::CANCELLED;
-        $this->cancelledAt = new DateTimeImmutable();
-        $this->updatedAt = new DateTimeImmutable();
-        $this->record(new OrderCancelled(
-            $this->id,
-            $this->customerId,
-            $this->getProducts(),
-            $this->total,
-        ));
-    }
+            return;
+        }
 
-    public function addProduct(Product $product): void
-    {
-        $this->validateAddProduct();
+        if ($event instanceof OrderCancelled) {
+            $this->status = OrderStatus::CANCELLED;
+            $this->cancelledAt = $event->occurredAt;
+            $this->updatedAt = $event->occurredAt;
 
-        $items = $this->products->getProducts();
-        $items[] = $product;
-        $this->products = new ProductCollection($items);
-        $this->total = $this->total->add($product->getPrice());
-        $this->updatedAt = new DateTimeImmutable();
+            return;
+        }
+
+        if ($event instanceof OrderProductAdded) {
+            $items = $this->products->getProducts();
+            $items[] = $event->product;
+            $this->products = new ProductCollection($items);
+            $this->total = $event->total;
+            $this->updatedAt = $event->occurredAt;
+        }
     }
 
     private function validateAddProduct(): void

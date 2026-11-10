@@ -4,21 +4,18 @@ declare(strict_types=1);
 
 namespace App\Ordering\Infrastructure\Persistence\Doctrine;
 
+use App\Shared\Infrastructure\Persistence\DoctrineEventStore;
 use Doctrine\DBAL\DriverManager;
 use Doctrine\ORM\Configuration;
 use Doctrine\ORM\EntityManager;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Mapping\ClassMetadata;
 use Doctrine\ORM\Mapping\Driver\AttributeDriver;
-use Doctrine\ORM\Tools\SchemaTool;
 use RuntimeException;
 
 final class EntityManagerFactory
 {
     public function create(): EntityManagerInterface
     {
-        DoctrineTypes::register();
-
         $config = new Configuration();
         $config->setMetadataDriverImpl(new AttributeDriver([dirname(__DIR__, 3) . '/Domain']));
         $config->setProxyDir(sys_get_temp_dir());
@@ -34,26 +31,9 @@ final class EntityManagerFactory
             'password' => $this->env('DATABASE_PASSWORD'),
         ]), $config);
 
-        $this->createOrdersTable($entityManager);
+        DoctrineEventStore::ensureSchema($entityManager->getConnection());
 
         return $entityManager;
-    }
-
-    private function createOrdersTable(EntityManagerInterface $entityManager): void
-    {
-        if ($entityManager->getConnection()->createSchemaManager()->tablesExist(['orders'])) {
-            return;
-        }
-
-        $classes = [];
-
-        foreach ($entityManager->getMetadataFactory()->getAllMetadata() as $metadata) {
-            if ($metadata instanceof ClassMetadata && !$metadata->isEmbeddedClass && !$metadata->isMappedSuperclass) {
-                $classes[] = $metadata;
-            }
-        }
-
-        (new SchemaTool($entityManager))->createSchema($classes);
     }
 
     private function env(string $name): string

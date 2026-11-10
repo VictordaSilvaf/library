@@ -4,38 +4,28 @@ declare(strict_types=1);
 
 namespace App\Catalog\Domain\ValueObject;
 
-use App\Catalog\Domain\Catalog;
-use Ramsey\Collection\Collection;
-use InvalidArgumentException;
+use App\Catalog\Domain\Aggregate\Catalog;
 
-class CatalogCollection extends Collection
+final class CatalogCollection
 {
-    /** @var list<Catalog> */
-    public array $items;
-
-    public function __construct(Catalog ...$catalogs)
-    {
-        if (count($catalogs) === 0) {
-            throw new InvalidArgumentException(
-                'At least one catalog is required.'
-            );
-        }
-
-        $this->items = array_values($catalogs);
+    /**
+     * @param list<Catalog> $catalogs
+     */
+    public function __construct(
+        private readonly array $catalogs,
+    ) {
     }
 
-    public function count(): int
-    {
-        return count($this->items);
-    }
-
-    public function first(): Catalog
-    {
-        return $this->items[0];
-    }
-
+    /**
+     * @return list<Catalog>
+     */
     public function all(): array
     {
-        return $this->items;
+        return $this->catalogs;
+    }
+
+    public function isEmpty(): bool
+    {
+        return $this->catalogs === [];
     }
 }
