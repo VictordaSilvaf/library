@@ -6,7 +6,7 @@ namespace App\Ordering\Application\Handler;
 
 use App\Ordering\Application\Command\ConfirmOrder;
 use App\Ordering\Application\DTO\OrderOutput;
-use App\Ordering\Application\Event\EventDispatcher;
+use App\Shared\Domain\Event\EventDispatcher;
 use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\Repository\OrderRepository;
 

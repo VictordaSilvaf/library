@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Domain\Event;
 
-final class SynchronousEventDispatcher
+final class SynchronousEventDispatcher implements EventDispatcher
 {
     /**
      * @param list<DomainEventLogger> $listeners

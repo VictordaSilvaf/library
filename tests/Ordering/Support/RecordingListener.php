@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Ordering\Support;
 
-use App\Ordering\Infrastructure\Event\EventListener;
+use App\Shared\Domain\Event\DomainEventLogger;
 
-class RecordingListener implements EventListener
+class RecordingListener implements DomainEventLogger
 {
     /**
      * @var list<object>

@@ -9,11 +9,13 @@ use App\Ordering\Application\Command\ConfirmOrder;
 use App\Ordering\Application\Handler\ConfirmOrderHandler;
 use App\Ordering\Domain\Exception\EmptyOrderException;
 use App\Ordering\Domain\Exception\InvalidOrderStateException;
+use App\Ordering\Domain\Exception\OrderNotFoundException;
 use App\Ordering\Domain\ValueObject\OrderId;
 use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Log\LoggerInterface;
 use Slim\Exception\HttpBadRequestException;
+use Slim\Exception\HttpNotFoundException;
 
 class ConfirmOrderAction extends Action
 {
@@ -28,6 +30,8 @@ class ConfirmOrderAction extends Action
     {
         try {
             $output = $this->handler->handle(new ConfirmOrder($this->orderId()));
+        } catch (OrderNotFoundException $exception) {
+            throw new HttpNotFoundException($this->request, $exception->getMessage());
         } catch (EmptyOrderException | InvalidOrderStateException $exception) {
             throw new HttpBadRequestException($this->request, $exception->getMessage());
         }

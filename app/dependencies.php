@@ -2,10 +2,11 @@
 
 declare(strict_types=1);
 
+use App\Catalog\Infrastructure\Event\CatalogEventLogger;
+use App\Ordering\Infrastructure\Event\OrderingEventLogger;
+use App\Shared\Domain\Event\EventDispatcher;
+use App\Shared\Domain\Event\SynchronousEventDispatcher;
 use App\Shared\Infrastructure\Settings\SettingsInterface;
-use App\Ordering\Application\Event\EventDispatcher;
-use App\Ordering\Infrastructure\Event\OrderEventLogger;
-use App\Ordering\Infrastructure\Event\SynchronousEventDispatcher;
 use App\Ordering\Infrastructure\Persistence\Doctrine\EntityManagerFactory;
 use DI\ContainerBuilder;
 use Doctrine\ORM\EntityManagerInterface;
@@ -36,7 +37,8 @@ return function (ContainerBuilder $containerBuilder) {
         },
         EventDispatcher::class => function (ContainerInterface $container): EventDispatcher {
             return new SynchronousEventDispatcher([
-                $container->get(OrderEventLogger::class),
+                $container->get(OrderingEventLogger::class),
+                $container->get(CatalogEventLogger::class),
             ]);
         },
     ]);
